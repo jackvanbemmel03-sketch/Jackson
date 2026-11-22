@@ -1,120 +1,437 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="nl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Transportplanner</title>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@800&display=swap">
 <style>
-:root{--bg:#e8edf0;--panel:#fff;--ink:#1b2a33;--mute:#5c6b74;--line:#cdd6dc;--map:#dfe7ea;--ok:#2f7d4f;--bad:#b83a2a;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11191e;--panel:#1a252c;--ink:#e6edf1;--mute:#93a3ad;--line:#2b3a43;--map:#16222a;--ok:#5cc08a;--bad:#ee7a68;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#11191e;--panel:#1a252c;--ink:#e6edf1;--mute:#93a3ad;--line:#2b3a43;--map:#16222a;--ok:#5cc08a;--bad:#ee7a68;color-scheme:dark}
+/* Jackson-huisstijl. Startscherm en spelscherm delen één kop met het logo. Spelscherm: kaart links met kerncijfers erboven, planning rechts. Bewust één lichte stijl. */
+:root{
+  --parelgroen:#1C542D;--parelgroen-donker:#123A1F;--parelgroen-tint:#E3ECE5;--wit:#FFFFFF;
+  --inkt:#1C542D;--inkt-gedempt:#59635C;--lijn:#C9D5CC;
+  --hoek-0:0px;--hoek-1:2px;--hoek-2:5px;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --sans:Barlow,Arial,sans-serif;
+}
 *{box-sizing:border-box}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif}
-main{max-width:1100px;margin:0 auto;padding:16px;display:grid;gap:14px;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
-@media(max-width:820px){main{grid-template-columns:1fr}}
-h1{font-size:22px;margin:0 0 2px}
-.sub{color:var(--mute);margin:0 0 10px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
-.stats{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px}
-.stats b{display:block;font-size:20px}
-.stats span{color:var(--mute);font-size:13px}
-svg{width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--line)}
-svg g[role=button]{cursor:pointer}
-svg g[role=button]:focus-visible circle{stroke-width:4}
-button{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer}
-button:hover:not(:disabled){border-color:var(--ink)}
-button:focus-visible{outline:3px solid #1f5fbf;outline-offset:2px}
-button:disabled{opacity:.45;cursor:not-allowed}
-button.go{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}
-.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
-.tabs button[aria-pressed=true]{border-width:2px;font-weight:600}
-.row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer;width:100%;text-align:left}
-.row small{color:var(--mute)}
-.side{display:grid;gap:14px;align-content:start}
-.msg{min-height:1.4em;color:var(--bad);margin:6px 0 0}
-.log p{margin:2px 0}
-.pos{color:var(--ok)}.neg{color:var(--bad)}
-.shop{display:grid;gap:6px}
-.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+[hidden]{display:none!important}
+body{margin:0;background:var(--wit);color:var(--inkt);font:400 17px/26px var(--sans);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 40px}
+.page{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:32px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px 32px;flex-wrap:wrap}
+.split{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,5fr);gap:32px 48px;align-items:start}
+@media(max-width:860px){.split{grid-template-columns:minmax(0,1fr);gap:24px}.split .mapcard{order:-1}}
+:focus-visible{outline:3px solid var(--parelgroen);outline-offset:3px}
+
+/* logo */
+.logo{display:inline-flex;align-items:center;gap:16px;color:var(--parelgroen)}
+.mark{width:56px;height:56px;flex:none;display:block}
+.lockup{display:flex;flex-direction:column;gap:6px}
+.word{font:800 2.1rem/.9 var(--display);letter-spacing:1px;text-transform:uppercase}
+.rule{height:3px;background:var(--parelgroen)}
+.tagl{font:600 .62rem/1 var(--sans);letter-spacing:.3em;text-transform:uppercase;white-space:nowrap}
+.who{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.who h1{font:800 clamp(1.6rem,4vw,2.1rem)/1 var(--display);margin:0;overflow-wrap:anywhere}
+.who small{display:block;font:600 .875rem/18px var(--sans);letter-spacing:.18em;text-transform:uppercase;color:var(--inkt-gedempt)}
+
+/* knoppen en velden */
+.go{background:var(--parelgroen);color:var(--wit);border:0;border-radius:var(--hoek-2);padding:14px 30px;font:800 1.4rem/1 var(--display);cursor:pointer}
+.go:hover:not(:disabled){background:var(--parelgroen-donker)}
+.go:disabled{background:var(--lijn);color:var(--inkt-gedempt);cursor:not-allowed}
+.sec{display:inline-flex;align-items:center;gap:8px;background:var(--wit);color:var(--parelgroen);border:2px solid var(--parelgroen);border-radius:var(--hoek-2);padding:9px 18px;font:600 1rem/1.3 var(--sans);cursor:pointer;text-align:left}
+.sec:hover:not(:disabled){background:var(--parelgroen-tint)}
+.sec:disabled{border-color:var(--lijn);color:var(--inkt-gedempt);cursor:not-allowed}
+.sec[aria-pressed=true]{background:var(--parelgroen);color:var(--wit)}
+.field{display:flex;flex-direction:column;gap:8px;border:0;padding:0;margin:0;min-width:0}
+.field>label,.field>legend{font:600 .875rem/18px var(--sans);letter-spacing:.18em;text-transform:uppercase;padding:0}
+.field>legend{margin-bottom:8px}
+input[type=text]{width:100%;background:var(--wit);color:var(--inkt);border:2px solid var(--parelgroen);border-radius:var(--hoek-0);padding:12px 14px;font:600 1.1rem/1.3 var(--sans)}
+input[type=text]::placeholder{color:var(--inkt-gedempt);font-weight:400}
+
+/* startscherm */
+.panel{container-type:inline-size;display:flex;flex-direction:column;gap:28px;min-width:0}
+.panel h1{font:800 min(11cqw,3.5rem)/1 var(--display);margin:0;overflow-wrap:anywhere}
+.bar{width:88px;height:6px;background:var(--parelgroen);margin-top:14px}
+.tag{margin:0;max-width:36ch}
+#start{display:flex;flex-direction:column;gap:22px}
+.levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.chip{position:relative;display:flex;flex-direction:column;gap:2px;padding:12px 14px;background:var(--wit);border:2px solid var(--lijn);border-radius:var(--hoek-2);cursor:pointer}
+.chip input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.chip b{font:800 1.35rem/1.1 var(--display)}
+.chip span{font-size:.875rem;line-height:20px;color:var(--inkt-gedempt)}
+.chip:has(input:checked){background:var(--parelgroen);border-color:var(--parelgroen);color:var(--wit)}
+.chip:has(input:checked) span{color:var(--wit)}
+.chip:has(input:focus-visible){outline:3px solid var(--parelgroen);outline-offset:3px}
+#start .go{align-self:flex-start}
+@media(max-width:520px){#start .go{align-self:stretch}}
+details{border-top:1px solid var(--lijn);padding-top:16px}
+summary{cursor:pointer;font-weight:600}
+details ol{margin:12px 0 0;padding-left:1.3rem;display:flex;flex-direction:column;gap:6px}
+
+/* kaart */
+.mapcard{background:var(--parelgroen-tint);border:1px solid var(--lijn);min-width:0;display:flex;overflow-x:auto}
+.mapcard svg{display:block;width:100%;height:auto;max-height:78vh;margin:auto}
+.route{fill:none;stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;animation:draw 2.6s .5s cubic-bezier(.4,0,.2,1) forwards}
+.route.b{animation-delay:1.4s}
+.stop{opacity:0;animation:pop .35s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes pop{to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.route{animation:none;stroke-dashoffset:0}.stop{animation:none;opacity:1}}
+
+/* spelscherm */
+.game{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:24px 32px;align-items:start}
+@media(max-width:900px){.game{grid-template-columns:minmax(0,1fr)}.game .mapcard svg{min-width:600px;max-height:none}}
+.main,.side{display:flex;flex-direction:column;gap:16px;min-width:0}
+.stats{display:flex;gap:12px 32px;flex-wrap:wrap}
+.stats b{display:block;font:800 2rem/1 var(--display)}
+.stats span{font-size:.875rem;line-height:20px;color:var(--inkt-gedempt)}
+.card{background:var(--wit);border:1px solid var(--lijn);padding:18px;min-width:0}
+.card h2{font:800 1.5rem/1.1 var(--display);margin:0 0 12px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tabs svg{flex:none}
+.info p{margin:0}
+.info .sub{color:var(--inkt-gedempt);font-size:.875rem;line-height:20px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.note{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:var(--hoek-2);margin-top:12px}
+.note .badge{flex:none;font:600 .875rem/18px var(--sans);letter-spacing:.18em;text-transform:uppercase;padding:2px 8px;border-radius:var(--hoek-1)}
+.note.warn{background:var(--parelgroen-tint);border:1px solid var(--lijn)}
+.note.warn .badge{background:var(--parelgroen);color:var(--wit)}
+.note.stopn{background:var(--parelgroen-donker);color:var(--wit)}
+.note.stopn .badge{background:var(--wit);color:var(--parelgroen-donker)}
+#melding .note{margin-top:0}
+.orders{display:flex;flex-direction:column;gap:8px}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 12px;background:var(--wit);border:2px solid var(--lijn);border-radius:var(--hoek-2);color:var(--inkt);font:400 1rem/1.4 var(--sans);text-align:left;cursor:pointer;width:100%}
+.row:hover{background:var(--parelgroen-tint)}
+.row.mine{border-color:var(--parelgroen);background:var(--parelgroen-tint)}
+.row small{font-size:.875rem;color:var(--inkt-gedempt)}
+.row .st{display:inline-flex;align-items:center;gap:6px;justify-self:end}
+.shop{display:flex;flex-direction:column;gap:8px}
+.shop .sec{justify-content:space-between;width:100%}
+.log p{margin:0 0 6px}
+.log p:last-child{margin:0}
+.log .muted{color:var(--inkt-gedempt)}
 </style>
 </head>
 <body>
-<main>
-<section>
-<h1>Transportplanner</h1>
-<p class="sub">Kies een wagen, klik op de bestellingen op de kaart in de volgorde waarin hij ze rijdt. Elke dienst begint en eindigt bij het depot.</p>
-<div class="card"><div class="stats" id="stats"></div><div id="map"></div><p class="msg" id="msg" role="status"></p></div>
-</section>
-<section class="side">
-<div class="card"><div class="tabs" id="tabs"></div><div id="info"></div><div class="btns"><button class="go" id="run" onclick="runDay()">Rijd de dag</button><button onclick="clearRoutes()">Wis routes</button></div></div>
-<div class="card"><b>Bestellingen</b><div id="orders" style="margin-top:8px"></div></div>
-<div class="card"><b>Investeren</b><div class="shop" id="shop" style="margin-top:8px"></div></div>
-<div class="card log" id="log" aria-live="polite"></div>
-</section>
-</main>
+
+
+<div class="page">
+  <header class="top">
+    <div class="logo" role="img" aria-label="Jackson, AI Game Ontwikkeling">
+      <svg class="mark" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><defs><mask id="jm" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="240"><path d="M128 156 C 150 112, 204 112, 200 152 C 196 184, 160 194, 132 178" fill="none" stroke="#fff" stroke-width="7" stroke-dasharray="7 3.5"></path><path d="M112 206 C 110 140, 106 82, 92 52 C 84 36, 68 32, 55 46" fill="none" stroke="#fff" stroke-width="12"></path><path d="M118 206 L 150 74" fill="none" stroke="#fff" stroke-width="12"></path><path d="M98 206 L 115 176 L 132 206 Z" fill="#fff"></path><g transform="translate(156 52)"><rect x="-36" y="-27" width="8" height="8" rx="1" fill="#fff"></rect><rect x="-20" y="-27" width="8" height="8" rx="1" fill="#fff"></rect><rect x="-4" y="-27" width="8" height="8" rx="1" fill="#fff"></rect><rect x="12" y="-27" width="8" height="8" rx="1" fill="#fff"></rect><rect x="28" y="-27" width="8" height="8" rx="1" fill="#fff"></rect><rect x="-36" y="19" width="8" height="8" rx="1" fill="#fff"></rect><rect x="-20" y="19" width="8" height="8" rx="1" fill="#fff"></rect><rect x="12" y="19" width="8" height="8" rx="1" fill="#fff"></rect><rect x="28" y="19" width="8" height="8" rx="1" fill="#fff"></rect><rect x="-40" y="-20" width="80" height="40" rx="5" fill="#fff"></rect><rect x="-30" y="-11" width="10" height="4" rx="1" fill="#000"></rect><rect x="-12" y="-11" width="10" height="4" rx="1" fill="#000"></rect><rect x="6" y="-11" width="10" height="4" rx="1" fill="#000"></rect><rect x="24" y="-11" width="10" height="4" rx="1" fill="#000"></rect><rect x="-21" y="2" width="10" height="4" rx="1" fill="#000"></rect><rect x="-3" y="2" width="10" height="4" rx="1" fill="#000"></rect><rect x="15" y="2" width="10" height="4" rx="1" fill="#000"></rect></g><g transform="translate(42 76) rotate(-32)"><rect x="-36" y="-27" width="8" height="8" rx="1" fill="#fff"></rect><rect x="-20" y="-27" width="8" height="8" rx="1" fill="#fff"></rect><rect x="-4" y="-27" width="8" height="8" rx="1" fill="#fff"></rect><rect x="-36" y="19" width="8" height="8" rx="1" fill="#fff"></rect><rect x="-20" y="19" width="8" height="8" rx="1" fill="#fff"></rect><rect x="-4" y="19" width="8" height="8" rx="1" fill="#fff"></rect><rect x="12" y="19" width="8" height="8" rx="1" fill="#fff"></rect><rect x="28" y="19" width="8" height="8" rx="1" fill="#fff"></rect><rect x="-40" y="-20" width="80" height="40" rx="5" fill="#fff"></rect><rect x="-30" y="-11" width="10" height="4" rx="1" fill="#000"></rect><rect x="-12" y="-11" width="10" height="4" rx="1" fill="#000"></rect><rect x="6" y="-11" width="10" height="4" rx="1" fill="#000"></rect><rect x="24" y="-11" width="10" height="4" rx="1" fill="#000"></rect><rect x="-21" y="2" width="10" height="4" rx="1" fill="#000"></rect><rect x="-3" y="2" width="10" height="4" rx="1" fill="#000"></rect><rect x="15" y="2" width="10" height="4" rx="1" fill="#000"></rect></g><rect x="40" y="206" width="160" height="14" rx="2" fill="#fff"></rect><rect x="52" y="211.5" width="16" height="3" fill="#000"></rect><rect x="80" y="211.5" width="16" height="3" fill="#000"></rect><rect x="144" y="211.5" width="16" height="3" fill="#000"></rect><rect x="172" y="211.5" width="16" height="3" fill="#000"></rect></mask></defs><rect width="240" height="240" fill="#1C542D" mask="url(#jm)"></rect></svg>
+      <div class="lockup" aria-hidden="true"><span class="word">Jackson</span><span class="rule"></span><span class="tagl">AI Game Ontwikkeling</span></div>
+    </div>
+    <div class="who" id="who" hidden>
+      <div><small>Bedrijf</small><h1 id="spelnaam" tabindex="-1"></h1></div>
+      <button class="sec" type="button" id="nieuw">Nieuw spel</button>
+    </div>
+  </header>
+
+  <div class="split" id="startview">
+    <section class="panel" aria-labelledby="titel">
+      <div>
+        <h1 id="titel">Transportplanner</h1>
+        <div class="bar"></div>
+      </div>
+      <p class="tag">Plan je routes over Europa en bouw vanuit Rotterdam een transportbedrijf op.</p>
+      <form id="start" autocomplete="off">
+        <div class="field">
+          <label for="bedrijf">Bedrijfsnaam</label>
+          <input id="bedrijf" name="bedrijf" type="text" maxlength="28" placeholder="Jouw bedrijf">
+        </div>
+        <fieldset class="field">
+          <legend>Moeilijkheid</legend>
+          <div class="levels">
+            <label class="chip"><input type="radio" name="niveau" value="rustig"><b>Rustig</b><span>€2.500 startkapitaal</span></label>
+            <label class="chip"><input type="radio" name="niveau" value="normaal" checked><b>Normaal</b><span>€1.500 startkapitaal</span></label>
+            <label class="chip"><input type="radio" name="niveau" value="zwaar"><b>Zwaar</b><span>€750 startkapitaal</span></label>
+          </div>
+        </fieldset>
+        <button class="go" type="submit">Start je bedrijf</button>
+      </form>
+      <details>
+        <summary>Zo werkt het</summary>
+        <ol>
+          <li>Je krijgt bestellingen uit Europese steden, elk met een lading en een deadline.</li>
+          <li>Kies een wagen en klik de bestellingen aan in de volgorde waarin hij ze rijdt.</li>
+          <li>Rijd de ronde. Een levering op tijd levert het volle bedrag op, te laat de helft.</li>
+          <li>Investeer in extra wagens, meer lading en hogere snelheid.</li>
+        </ol>
+      </details>
+    </section>
+    <div class="mapcard" id="kaart"></div>
+  </div>
+
+  <div class="game" id="spel" hidden>
+    <section class="main" aria-label="Kaart">
+      <div class="stats" id="stats"></div>
+      <div class="mapcard" id="spelkaart"></div>
+      <div id="melding" role="status"></div>
+    </section>
+    <section class="side" aria-label="Planning">
+      <div class="card">
+        <h2>Wagen kiezen</h2>
+        <div class="tabs" id="tabs"></div>
+        <div class="info" id="info"></div>
+        <div id="notes"></div>
+        <div class="btns"><button class="go" id="run" type="button">Rijd de ronde</button><button class="sec" id="wis" type="button">Wis routes</button></div>
+      </div>
+      <div class="card"><h2>Bestellingen</h2><div class="orders" id="orders"></div></div>
+      <div class="card"><h2>Investeren</h2><div class="shop" id="shop"></div></div>
+      <div class="card log" id="log" aria-live="polite"></div>
+    </section>
+  </div>
+</div>
+
 <script>
-const COL=['#1f5fbf','#d9822b','#2f7d4f','#8a3fa8'];
-const D={x:300,y:200,n:'Depot'},K=.5,FUEL=.5,WAGE=30,SHIFT=12;
-const TOWNS=[['Gouda',210,120],['Leiden',90,100],['Haarlem',70,200],['Breda',120,340],['Tiel',330,330],['Arnhem',500,290],['Amersfoort',470,130],['Zwolle',540,40],['Almere',380,60],['Delft',150,235]].map(a=>({n:a[0],x:a[1],y:a[2]}));
-let S;
-const km=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y)*K;
-const fmt=h=>h.toFixed(1).replace('.',',')+' u';
-const eur=n=>'€'+Math.round(n).toLocaleString('nl-NL');
+const px=lo=>(lo+11)*16,py=la=>(59-la)*26;
+
+/* Kustlijnen (lengtegraad,breedtegraad), sterk vereenvoudigd */
+const MAIN="-5.6,36.0 -6.2,36.5 -6.9,37.2 -7.4,37.2 -7.9,37.0 -8.95,37.0 -8.8,37.95 -8.9,38.5 -9.5,38.75 -9.4,39.35 -9.1,39.6 -8.9,40.15 -8.7,40.65 -8.65,41.15 -8.85,41.7 -8.9,42.2 -9.3,42.9 -8.6,43.35 -8.4,43.45 -7.7,43.8 -7.0,43.55 -5.7,43.6 -3.8,43.45 -2.9,43.4 -1.8,43.35 -1.55,43.5 -1.45,43.65 -1.25,44.65 -1.1,45.55 -1.2,45.8 -1.15,46.15 -1.8,46.5 -2.2,46.95 -2.2,47.25 -3.15,47.5 -3.4,47.72 -3.9,47.85 -4.35,47.8 -4.7,48.05 -4.8,48.4 -4.7,48.55 -4.0,48.75 -3.4,48.85 -2.7,48.55 -2.3,48.68 -2.0,48.65 -1.5,48.65 -1.6,48.85 -1.8,49.3 -1.88,49.7 -1.6,49.65 -1.26,49.7 -1.2,49.4 -0.3,49.3 0.2,49.4 0.1,49.5 0.2,49.7 1.1,49.93 1.5,50.2 1.6,50.75 1.85,50.97 2.4,51.05 2.9,51.23 3.2,51.35 3.55,51.4 3.5,51.6 3.9,51.8 4.1,51.98 4.25,52.1 4.55,52.46 4.65,52.77 4.75,52.97 5.4,53.2 6.2,53.4 6.85,53.45 7.2,53.35 7.2,53.65 8.1,53.6 8.55,53.55 8.7,53.9 8.95,54.1 8.6,54.3 8.85,54.55 8.65,55.0 8.4,55.45 8.1,55.55 8.1,56.0 8.15,56.5 8.2,56.7 8.65,57.1 9.9,57.6 10.6,57.75 10.55,57.4 10.3,57.0 10.9,56.4 10.25,56.15 9.85,55.85 9.75,55.55 9.5,55.5 9.6,55.25 9.4,54.8 9.9,54.9 9.85,54.5 10.15,54.35 11.1,54.4 10.85,53.95 11.4,53.95 12.1,54.2 12.5,54.45 13.1,54.35 13.5,54.65 14.1,54.0 14.25,53.9 15.55,54.2 16.85,54.6 17.55,54.75 18.7,54.75 18.65,54.35 19.5,54.4 19.9,54.65 20.0,54.95 21.0,55.4 21.1,55.7 21.05,56.0 21.0,56.5 21.55,57.4 22.6,57.75 23.1,57.4 24.1,57.0 24.35,57.75 24.5,58.4 23.4,58.7 23.5,59.2 24.8,59.5 30,60 50,62 50,34 36,34 36,36.6 34.6,36.8 32.8,36.05 32.0,36.5 30.7,36.85 29.6,36.2 29.1,36.6 28.3,36.85 27.4,37.0 27.25,37.85 26.3,38.3 26.8,38.45 26.5,38.65 26.9,39.1 26.7,39.3 26.05,39.5 26.2,40.05 26.25,40.2 26.8,40.45 26.2,40.65 25.9,40.85 25.0,40.9 24.4,40.9 23.8,40.7 22.9,40.6 23.4,40.3 23.7,40.0 22.65,40.0 22.95,39.35 23.0,38.8 23.5,38.3 24.0,38.15 24.0,37.65 23.6,37.95 23.0,37.95 23.15,37.4 22.8,37.55 22.9,37.2 23.05,36.7 23.2,36.45 22.5,36.4 22.1,36.9 21.7,36.8 21.65,36.95 21.3,37.65 21.1,37.9 21.7,38.25 21.4,38.35 20.75,38.95 20.4,39.3 20.2,39.5 19.95,39.85 19.45,40.45 19.45,41.3 19.55,41.8 19.1,42.0 18.8,42.3 18.1,42.65 17.4,43.05 16.45,43.5 15.2,44.1 14.4,45.3 13.85,44.85 13.6,45.2 13.75,45.65 12.4,45.45 12.5,44.95 12.3,44.4 12.6,44.1 13.5,43.6 14.25,42.45 15.0,42.0 16.2,41.95 16.0,41.6 16.85,41.15 17.95,40.65 18.5,40.15 18.35,39.8 17.95,40.05 17.25,40.45 16.8,40.3 16.5,39.75 17.15,39.05 16.6,38.65 16.05,37.9 15.65,38.1 15.9,38.45 15.85,38.62 16.0,39.35 15.7,39.95 15.3,40.0 14.75,40.65 14.35,40.6 14.25,40.85 13.55,41.2 13.05,41.2 12.6,41.45 12.2,41.75 11.8,42.1 11.1,42.4 10.5,42.95 10.3,43.55 10.25,43.85 9.85,44.05 8.9,44.4 8.5,44.3 8.0,43.85 7.5,43.8 7.25,43.7 7.0,43.55 6.65,43.25 5.95,43.1 5.35,43.3 4.55,43.4 3.7,43.4 3.1,43.15 3.05,42.7 3.3,42.3 3.2,41.85 2.2,41.4 1.25,41.1 0.9,40.7 0.0,39.95 -0.3,39.45 0.2,38.7 -0.5,38.3 -0.95,37.55 -2.2,36.75 -2.45,36.8 -3.5,36.7 -4.4,36.7 -4.9,36.5 -5.35,36.1";
+const UK="-5.7,50.07 -5.2,49.96 -5.0,50.15 -4.15,50.35 -3.65,50.2 -3.4,50.6 -2.45,50.52 -1.9,50.7 -1.3,50.75 -0.8,50.72 -0.15,50.8 0.25,50.73 0.6,50.85 0.97,50.92 1.4,51.12 1.4,51.38 0.8,51.45 1.1,51.78 1.28,51.95 1.75,52.47 1.73,52.6 1.3,52.93 0.5,52.95 0.35,52.75 0.0,52.95 0.35,53.15 0.1,53.57 -0.2,54.1 -0.4,54.28 -0.6,54.5 -1.2,54.6 -1.4,54.9 -2.0,55.77 -2.5,56.0 -2.6,56.3 -3.0,56.45 -2.45,56.7 -2.08,57.15 -1.8,57.5 -2.0,57.7 -2.5,57.67 -3.0,57.7 -4.2,57.6 -3.8,57.9 -3.07,58.64 -5.0,58.6 -5.15,57.9 -5.6,57.4 -5.7,56.9 -5.5,56.4 -5.75,55.3 -4.65,55.45 -4.9,55.9 -5.1,54.9 -4.85,54.65 -3.5,54.95 -3.2,54.1 -3.05,53.85 -3.0,53.4 -3.4,53.35 -4.6,53.4 -4.3,53.15 -4.7,52.8 -4.05,52.7 -4.1,52.4 -4.7,52.1 -5.3,51.9 -5.0,51.7 -4.0,51.6 -3.15,51.45 -2.7,51.5 -3.0,51.35 -4.5,51.0 -4.6,50.8 -5.05,50.4 -5.45,50.2";
+const IRL="-6.1,53.3 -6.3,54.0 -5.9,54.6 -5.8,54.85 -6.5,55.25 -7.4,55.4 -8.3,55.15 -8.45,54.6 -8.5,54.3 -9.2,54.25 -10.1,53.95 -9.9,53.45 -9.0,53.2 -9.9,52.55 -10.4,52.15 -10.3,51.9 -9.8,51.45 -8.3,51.8 -7.4,52.1 -6.95,52.1 -6.35,52.2 -6.0,52.95";
+const SCAN="12.85,55.4 12.95,55.6 12.7,56.05 12.85,56.65 12.25,57.1 11.9,57.7 11.15,58.95 10.0,59.0 9.4,58.85 8.8,58.45 8.0,58.1 7.05,57.98 6.0,58.4 5.65,58.95 5.3,59.5 5.0,60.5 19.0,60.5 17.4,59.4 17.0,58.7 16.7,57.75 16.5,57.3 16.4,56.7 15.6,56.15 14.2,55.4 13.4,55.4";
+const ZEE="11.1,55.35 11.0,55.95 11.9,56.1 12.3,56.1 12.6,55.7 12.4,55.3 12.1,55.05 12.2,54.7 11.9,54.55 11.5,54.6 11.8,55.0 11.4,55.2";
+const FUN="9.7,55.2 9.7,55.35 10.1,55.65 10.3,55.55 10.8,55.3 10.5,55.05 10.0,55.05";
+const SIC="12.45,37.9 13.0,38.2 14.0,38.0 15.2,38.3 15.65,38.25 15.1,37.3 15.05,36.8 14.45,36.7 13.4,37.1 12.6,37.6";
+const SAR="8.2,40.95 9.0,41.25 9.65,41.0 9.75,40.5 9.65,39.4 9.4,39.0 8.9,38.9 8.4,39.1 8.45,39.9";
+const COR="8.6,42.45 9.35,43.0 9.5,42.55 9.4,41.5 9.15,41.4 8.65,41.65 8.55,42.1";
+const MAL="2.4,39.55 3.05,39.95 3.45,39.75 3.15,39.3 2.75,39.45";
+const AFR="-12,30 -6.1,35.2 -5.85,35.78 -5.3,35.89 -3.9,35.25 -2.95,35.3 -1.9,35.15 -0.65,35.75 0.1,35.95 3.05,36.78 5.1,36.75 6.9,36.9 7.75,36.9 9.85,37.3 10.3,36.85 11.05,37.05 10.55,36.4 10.65,35.8 10.8,34.7 30,30";
+const LAND=[AFR,MAIN,UK,IRL,SCAN,ZEE,FUN,SIC,SAR,COR,MAL].map(s=>'M'+s.trim().split(/\s+/).map(p=>{const[lo,la]=p.split(',').map(Number);return px(lo).toFixed(1)+','+py(la).toFixed(1)}).join('L')+'Z');
+
+/* Steden: naam, breedtegraad, lengtegraad */
+const CITIES=[['Rotterdam',51.92,4.48],['Antwerpen',51.22,4.40],['Lille',50.63,3.06],['Parijs',48.86,2.35],['Keulen',50.94,6.96],['Frankfurt',50.11,8.68],['Hannover',52.38,9.73],['Hamburg',53.55,9.99],['Berlijn',52.52,13.40],['Kopenhagen',55.68,12.57],['Londen',51.51,-0.13],['Stuttgart',48.78,9.18],['München',48.14,11.58],['Zürich',47.38,8.54],['Milaan',45.46,9.19],['Lyon',45.76,4.84],['Marseille',43.30,5.37],['Bordeaux',44.84,-0.58],['Barcelona',41.39,2.17],['Madrid',40.42,-3.70],['Rome',41.90,12.50],['Praag',50.08,14.44],['Wenen',48.21,16.37],['Boedapest',47.50,19.04],['Warschau',52.23,21.01]].map((a,i)=>({n:a[0],la:a[1],lo:a[2],x:px(a[2]),y:py(a[1]),i}));
+const D=CITIES[0];
+const ROADDEF=[['Rotterdam','Antwerpen'],['Rotterdam','Keulen'],['Rotterdam','Hannover'],['Antwerpen','Lille'],['Antwerpen','Keulen'],['Lille','Parijs'],['Lille','Londen','f'],['Keulen','Frankfurt'],['Keulen','Hannover'],['Hannover','Hamburg'],['Hannover','Berlijn'],['Hamburg','Berlijn'],['Hamburg','Kopenhagen','f'],['Frankfurt','Hannover'],['Frankfurt','Stuttgart'],['Frankfurt','München'],['Frankfurt','Parijs'],['Parijs','Lyon'],['Parijs','Bordeaux'],['Lyon','Marseille'],['Lyon','Zürich'],['Lyon','Milaan'],['Zürich','Stuttgart'],['Zürich','Milaan'],['Stuttgart','München'],['München','Wenen'],['München','Praag'],['München','Milaan'],['Milaan','Rome'],['Marseille','Barcelona'],['Barcelona','Madrid'],['Bordeaux','Madrid'],['Praag','Berlijn'],['Praag','Wenen'],['Praag','Warschau'],['Wenen','Boedapest'],['Boedapest','Warschau'],['Berlijn','Warschau']];
+const hav=(a,b)=>{const r=Math.PI/180,dla=(b.la-a.la)*r,dlo=(b.lo-a.lo)*r,h=Math.sin(dla/2)**2+Math.cos(a.la*r)*Math.cos(b.la*r)*Math.sin(dlo/2)**2;return 12742*Math.asin(Math.sqrt(h))};
+const W=608,H=611;
+const G='#1C542D',GD='#123A1F',TINT='#E3ECE5',WIT='#FFFFFF',MUTE='#59635C',LIJN='#C9D5CC';
+const FUEL=.4,WAGE=70,SHIFT=48,GOAL=30000;
 const $=id=>document.getElementById(id);
-function init(){S={day:1,money:300,cap:10,speed:50,trucks:[{route:[]}],sel:0,orders:[],log:[],over:false,won:false,nid:1};newOrders();draw()}
-function newOrders(){const n=Math.min(3+S.day,9),pool=[...TOWNS].sort(()=>Math.random()-.5).slice(0,n);
- S.orders=pool.map(t=>{const load=2+Math.floor(Math.random()*5),d=km(D,t);return{id:S.nid++,t,load,dl:Math.ceil(d/50+2+Math.random()*5),rew:Math.round(40+load*4+d*1.6)}})}
+const eur=n=>(n<0?'−':'')+'€'+Math.abs(Math.round(n)).toLocaleString('nl-NL');
+const fmt=h=>h.toFixed(1).replace('.',',')+' u';
+const by=n=>CITIES.find(c=>c.n===n);
+
+/* wegennet en kortste routes */
+const ROADS=ROADDEF.map(([a,b,f])=>{const A=by(a),B=by(b);return{a:A,b:B,f:!!f,len:hav(A,B)*1.2}});
+const NN=CITIES.length,DIST=Array.from({length:NN},(_,i)=>Array.from({length:NN},(_,j)=>i===j?0:Infinity)),NXT=Array.from({length:NN},()=>Array(NN).fill(-1));
+ROADS.forEach(r=>{DIST[r.a.i][r.b.i]=DIST[r.b.i][r.a.i]=r.len;NXT[r.a.i][r.b.i]=r.b.i;NXT[r.b.i][r.a.i]=r.a.i});
+for(let k=0;k<NN;k++)for(let i=0;i<NN;i++)for(let j=0;j<NN;j++)if(DIST[i][k]+DIST[k][j]<DIST[i][j]){DIST[i][j]=DIST[i][k]+DIST[k][j];NXT[i][j]=NXT[i][k]}
+const km=(a,b)=>DIST[a.i][b.i];
+const path=(a,b)=>{const p=[a.i];let c=a.i;while(c!==b.i){c=NXT[c][b.i];p.push(c)}return p};
+
+/* wagens: eigen lijnpatroon en markervorm, allemaal parelgroen */
+const CAR=[{shape:'circle',dash:'',cap:'butt'},{shape:'square',dash:'12 8',cap:'butt'},{shape:'triangle',dash:'0.1 9',cap:'round'},{shape:'diamond',dash:'14 7 3 7',cap:'butt'}];
+function marker(shape,x,y,label,size){
+  const k=size||1,st=`fill="${WIT}" stroke="${G}" stroke-width="3" stroke-linejoin="round"`;
+  let s='';
+  if(shape==='circle')s=`<circle cx="${x}" cy="${y}" r="${10*k}" ${st}/>`;
+  if(shape==='square')s=`<rect x="${x-9*k}" y="${y-9*k}" width="${18*k}" height="${18*k}" ${st}/>`;
+  if(shape==='triangle')s=`<polygon points="${x},${y-12*k} ${x+12*k},${y+9*k} ${x-12*k},${y+9*k}" ${st}/>`;
+  if(shape==='diamond')s=`<polygon points="${x},${y-13*k} ${x+13*k},${y} ${x},${y+13*k} ${x-13*k},${y}" ${st}/>`;
+  if(label!=null&&label!=='')s+=`<text x="${x}" y="${y+(shape==='triangle'?6:4)}" text-anchor="middle" font-size="12" font-weight="600" fill="${G}" style="font-family:Barlow,Arial,sans-serif">${label}</text>`;
+  return s;
+}
+const icon=i=>`<svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">${marker(CAR[i].shape,13,13,'')}</svg>`;
+
+/* labels zo plaatsen dat ze zo min mogelijk over steden of andere labels vallen */
+function labelLayout(items){
+  const boxes=items.map(it=>[it.x-it.r,it.y-it.r,it.x+it.r,it.y+it.r]),placed=[];
+  const hit=(a,b)=>a[0]<b[2]&&a[2]>b[0]&&a[1]<b[3]&&a[3]>b[1];
+  return items.map((it,k)=>{
+    const w=it.text.length*6.4+4,h=14,r=it.r,x=it.x,y=it.y;
+    const c=[{x:x,y:y+r+12,a:'middle',b:[x-w/2,y+r,x+w/2,y+r+h]},
+      {x:x+r+4,y:y+4,a:'start',b:[x+r+2,y-7,x+r+4+w,y+7]},
+      {x:x-r-4,y:y+4,a:'end',b:[x-r-4-w,y-7,x-r-2,y+7]},
+      {x:x,y:y-r-4,a:'middle',b:[x-w/2,y-r-h,x+w/2,y-r]}];
+    let best=c[0],bs=1e9;
+    for(const q of c){let s=0;
+      if(q.b[0]<0||q.b[2]>W||q.b[1]<0||q.b[3]>H)s+=4;
+      boxes.forEach((b,j)=>{if(j!==k&&hit(q.b,b))s+=2});
+      placed.forEach(b=>{if(hit(q.b,b))s+=3});
+      if(s<bs){bs=s;best=q}}
+    placed.push(best.b);return best});
+}
+const lab=(p,text,w)=>`<text x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" text-anchor="${p.a}" font-size="12" font-weight="${w}" fill="${G}" stroke="${WIT}" stroke-opacity=".9" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round" style="font-family:Barlow,Arial,sans-serif">${text}</text>`;
+const baseMap=()=>{
+  let s=`<rect width="${W}" height="${H}" fill="${TINT}"/>`;
+  LAND.forEach(d=>{s+=`<path d="${d}" fill="${WIT}" stroke="${LIJN}" stroke-width="1" stroke-linejoin="round"/>`});
+  ROADS.forEach(r=>{s+=`<line x1="${r.a.x.toFixed(1)}" y1="${r.a.y.toFixed(1)}" x2="${r.b.x.toFixed(1)}" y2="${r.b.y.toFixed(1)}" stroke="${MUTE}" stroke-opacity=".4" stroke-width="2" stroke-linecap="round"${r.f?' stroke-dasharray="6 5"':''}><title>${r.a.n} – ${r.b.n}: ${Math.round(r.len)} km${r.f?' (tunnel of veer)':''}</title></line>`});
+  return s;
+};
+
+/* ---------- startscherm: kaart met twee decoratieve routes ---------- */
+(function hero(){
+  const line=names=>'M'+names.map(n=>{const c=by(n);return c.x.toFixed(1)+' '+c.y.toFixed(1)}).join('L');
+  const A=['Rotterdam','Hannover','Berlijn','Warschau'],B=['Rotterdam','Keulen','Frankfurt','München','Milaan'];
+  const LAB={Rotterdam:[11,-9,'start'],Londen:[-9,4,'end'],Parijs:[0,17,'middle'],Berlijn:[0,17,'middle'],Warschau:[0,17,'middle'],Milaan:[0,17,'middle'],Madrid:[0,17,'middle'],Rome:[0,17,'middle'],Wenen:[0,17,'middle'],Kopenhagen:[0,-10,'middle']};
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Kaart van Europa met twee routes vanuit Rotterdam, naar Warschau en naar Milaan">`+baseMap();
+  s+=`<path class="route a" pathLength="1" d="${line(A)}" stroke="${G}"/><path class="route b" pathLength="1" d="${line(B)}" stroke="${GD}"/>`;
+  CITIES.forEach(c=>{if(c.n!=='Rotterdam')s+=`<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3.5" fill="${MUTE}"/>`});
+  [[A[3],G,'3s'],[B[4],GD,'3.9s']].forEach(([n,col,dl])=>{const c=by(n);s+=`<circle class="stop" style="animation-delay:${dl}" cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="8" fill="${WIT}" stroke="${col}" stroke-width="4"/>`});
+  const R=by('Rotterdam');
+  s+=`<rect x="${(R.x-8).toFixed(1)}" y="${(R.y-8).toFixed(1)}" width="16" height="16" fill="${G}" stroke="${WIT}" stroke-width="2"/>`;
+  Object.entries(LAB).forEach(([n,[dx,dy,a]])=>{const c=by(n);s+=lab({x:c.x+dx,y:c.y+dy,a},n,n==='Rotterdam'?600:400)});
+  $('kaart').innerHTML=s+'</svg>';
+})();
+
+/* ---------- spel ---------- */
+const LEVELS={rustig:['Rustig',2500],normaal:['Normaal',1500],zwaar:['Zwaar',750]};
+let S=null;
+function init(naam,niveau){
+  S={naam,niveau,day:1,money:LEVELS[niveau][1],cap:10,speed:70,trucks:[{route:[]}],sel:0,orders:[],log:[],note:null,over:false,won:false,nid:1};
+  newOrders();draw();
+}
+function newOrders(){
+  const maxD=Math.min(500+150*(S.day-1),S.speed*SHIFT/2*.95);
+  const pool=CITIES.slice(1).filter(t=>km(D,t)<=maxD).sort(()=>Math.random()-.5).slice(0,Math.min(3+S.day,9));
+  S.orders=pool.map(t=>{const load=2+Math.floor(Math.random()*5),d=km(D,t);return{id:S.nid++,t,load,dl:Math.ceil(d/70+4+Math.random()*12),rew:Math.round(60+load*8+d*1.8)}});
+}
 const owner=id=>S.trucks.findIndex(t=>t.route.includes(id));
 const ord=id=>S.orders.find(o=>o.id===id);
-function stats(t){let p=D,time=0,dist=0,load=0;const st=[];
- for(const id of t.route){const o=ord(id),d=km(p,o.t);dist+=d;time+=d/S.speed;load+=o.load;st.push({o,arr:time,late:time>o.dl});p=o.t}
- if(st.length){const b=km(p,D);dist+=b;time+=b/S.speed}
- return{dist,time,load,st}}
+function stats(t){
+  let p=D,time=0,dist=0,load=0;const st=[];
+  for(const id of t.route){const o=ord(id),d=km(p,o.t);dist+=d;time+=d/S.speed;load+=o.load;st.push({o,arr:time,late:time>o.dl});p=o.t}
+  if(st.length){const b=km(p,D);dist+=b;time+=b/S.speed}
+  return{dist,time,load,st};
+}
 const revenue=s=>s.st.reduce((a,x)=>a+(x.late?.5:1)*x.o.rew,0);
 const net=s=>s.st.length?revenue(s)-s.dist*FUEL-WAGE:0;
-function msg(t){$('msg').textContent=t}
-function pick(id){if(S.over)return;const cur=S.trucks[S.sel],ow=owner(id);
- if(ow===S.sel){cur.route=cur.route.filter(x=>x!==id);msg('');return draw()}
- const old=ow>=0?S.trucks[ow]:null;if(old)old.route=old.route.filter(x=>x!==id);
- cur.route.push(id);const s=stats(cur);
- if(s.load>S.cap||s.time>SHIFT){cur.route.pop();if(old)old.route.push(id);
-  msg(s.load>S.cap?'Past niet: de lading is te zwaar voor deze wagen.':'Past niet: een dienst duurt maximaal 12 uur.');return draw()}
- msg('');draw()}
-function clearRoutes(){S.trucks.forEach(t=>t.route=[]);msg('');draw()}
-function selTruck(i){S.sel=i;msg('');draw()}
-function runDay(){if(S.over)return;let tot=0;const L=[];
- S.trucks.forEach((t,i)=>{const s=stats(t);if(!s.st.length)return;const late=s.st.filter(x=>x.late).length,n=net(s);tot+=n;
-  L.push(`Wagen ${i+1}: ${Math.round(s.dist)} km, ${s.st.length} leveringen${late?`, ${late} te laat (halve prijs)`:''}, ${n>=0?'+':'−'}${eur(Math.abs(n))}`)});
- const un=S.orders.filter(o=>owner(o.id)<0);
- if(un.length){tot-=un.length*30;L.push(`${un.length} bestelling${un.length>1?'en':''} niet geleverd: −${eur(un.length*30)} boete`)}
- S.money+=tot;L.push(`<b>Dag ${S.day}: ${tot>=0?'+':'−'}${eur(Math.abs(tot))}</b>`);
- S.log=L;S.day++;S.trucks.forEach(t=>t.route=[]);msg('');
- if(S.money<0)S.over=true;else{newOrders();if(S.money>=5000&&!S.won){S.won=true;S.log.push('Je bedrijf haalt €5.000. Gewonnen! Je mag doorspelen.')}}
- draw()}
-function buy(k){const c={truck:500,cap:400,spd:400}[k];if(S.money<c||S.over)return;
- if(k==='truck'&&S.trucks.length<4)S.trucks.push({route:[]});else if(k==='cap'&&S.cap<30)S.cap+=4;else if(k==='spd'&&S.speed<90)S.speed+=10;else return;
- S.money-=c;draw()}
+function pick(id){
+  if(S.over)return;
+  const cur=S.trucks[S.sel],ow=owner(id);
+  S.note=null;
+  if(ow===S.sel){cur.route=cur.route.filter(x=>x!==id);return draw()}
+  const old=ow>=0?S.trucks[ow]:null;
+  if(old)old.route=old.route.filter(x=>x!==id);
+  cur.route.push(id);
+  const s=stats(cur);
+  if(s.load>S.cap||s.time>SHIFT){
+    cur.route.pop();if(old)old.route.push(id);
+    S.note={label:'Past niet',text:s.load>S.cap?'De lading is te zwaar voor deze wagen. Kies een andere wagen of minder bestellingen.':`Een rit duurt maximaal ${SHIFT} uur. Kies een kortere route of minder bestellingen.`};
+  }
+  draw();
+}
+function clearRoutes(){S.trucks.forEach(t=>t.route=[]);S.note=null;draw()}
+function selTruck(i){S.sel=i;S.note=null;draw()}
+function runDay(){
+  if(S.over)return;
+  let tot=0;const L=[];
+  S.trucks.forEach((t,i)=>{
+    const s=stats(t);if(!s.st.length)return;
+    const late=s.st.filter(x=>x.late).length,n=net(s);tot+=n;
+    L.push(`Wagen ${i+1}: ${Math.round(s.dist)} km, ${s.st.length} ${s.st.length===1?'levering':'leveringen'}${late?`, ${late} te laat (halve prijs)`:''}, ${n>=0?'+':''}${eur(n)}`);
+  });
+  const un=S.orders.filter(o=>owner(o.id)<0);
+  if(un.length){tot-=un.length*120;L.push(`${un.length} ${un.length===1?'bestelling':'bestellingen'} niet geleverd: −${eur(un.length*120).replace('−','')} boete`)}
+  S.money+=tot;
+  L.unshift(`Ronde ${S.day}: ${tot>=0?'+':''}${eur(tot)}`);
+  S.log=L;S.day++;S.trucks.forEach(t=>t.route=[]);S.note=null;
+  if(S.money<0)S.over=true;
+  else{newOrders();if(S.money>=GOAL&&!S.won){S.won=true;S.log.push(`Je bedrijf haalt ${eur(GOAL)}. Gewonnen. Je mag doorspelen.`)}}
+  draw();
+}
+function buy(k){
+  const c={truck:3000,cap:2000,spd:2500}[k];
+  if(S.money<c||S.over)return;
+  if(k==='truck'&&S.trucks.length<4)S.trucks.push({route:[]});
+  else if(k==='cap'&&S.cap<30)S.cap+=4;
+  else if(k==='spd'&&S.speed<110)S.speed+=10;
+  else return;
+  S.money-=c;S.note=null;draw();
+}
+
 function draw(){
- $('stats').innerHTML=`<div><b>Dag ${S.day}</b><span>nu</span></div><div><b class="${S.money<0?'neg':''}">${eur(S.money)}</b><span>kas</span></div><div><b>${S.cap}</b><span>lading per wagen</span></div><div><b>${S.speed} km/u</b><span>snelheid</span></div>`;
- let g=`<svg viewBox="0 0 600 400" role="group" aria-label="Kaart met bestellingen"><rect width="600" height="400" fill="var(--map)"/>`;
- S.trucks.forEach((t,i)=>{if(!t.route.length)return;const pts=[D,...t.route.map(id=>ord(id).t),D];
-  g+=`<polyline points="${pts.map(p=>p.x+','+p.y).join(' ')}" fill="none" stroke="${COL[i]}" stroke-width="${i===S.sel?4:2.5}" stroke-opacity=".85" stroke-linejoin="round"/>`});
- const open=new Set(S.orders.map(o=>o.t.n));
- TOWNS.filter(t=>!open.has(t.n)).forEach(t=>{g+=`<circle cx="${t.x}" cy="${t.y}" r="4" fill="var(--mute)"/><text x="${t.x}" y="${t.y+16}" text-anchor="middle" font-size="11" fill="var(--mute)">${t.n}</text>`});
- S.orders.forEach(o=>{const ow=owner(o.id),f=ow>=0?COL[ow]:'var(--panel)',tc=ow>=0?'#fff':'var(--ink)',pos=ow>=0?S.trucks[ow].route.indexOf(o.id)+1:'';
-  g+=`<g role="button" tabindex="0" aria-label="${o.t.n}, lading ${o.load}, deadline ${o.dl} uur" onclick="pick(${o.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pick(${o.id})}"><circle cx="${o.t.x}" cy="${o.t.y}" r="17" fill="${f}" stroke="var(--ink)" stroke-width="2"/><text x="${o.t.x}" y="${o.t.y+5}" text-anchor="middle" font-size="14" font-weight="700" fill="${tc}">${o.load}</text><text x="${o.t.x}" y="${o.t.y+32}" text-anchor="middle" font-size="11" fill="var(--ink)">${o.t.n} · ≤${o.dl} u</text>${pos?`<text x="${o.t.x+16}" y="${o.t.y-12}" font-size="12" font-weight="700" fill="${COL[ow]}">#${pos}</text>`:''}</g>`});
- g+=`<rect x="${D.x-12}" y="${D.y-12}" width="24" height="24" rx="4" fill="var(--ink)"/><text x="${D.x}" y="${D.y+28}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Depot</text></svg>`;
- $('map').innerHTML=g;
- $('tabs').innerHTML=S.trucks.map((t,i)=>`<button aria-pressed="${i===S.sel}" style="border-color:${COL[i]}" onclick="selTruck(${i})">Wagen ${i+1}</button>`).join('');
- const s=stats(S.trucks[S.sel]),n=net(s);
- $('info').innerHTML=s.st.length?`<p style="margin:0">Lading <b>${s.load}/${S.cap}</b> · ${Math.round(s.dist)} km · ${fmt(s.time)} van ${SHIFT} u<br>Verwachte winst: <b class="${n>=0?'pos':'neg'}">${n>=0?'+':'−'}${eur(Math.abs(n))}</b>${s.st.some(x=>x.late)?' <span class="neg">(let op: te laat)</span>':''}</p>`:`<p style="margin:0;color:var(--mute)">Deze wagen heeft nog geen route. Klik een bestelling aan.</p>`;
- $('orders').innerHTML=S.orders.map(o=>{const ow=owner(o.id);return`<button class="row" onclick="pick(${o.id})"><span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>Uiterlijk na ${o.dl} u</small><small>${ow>=0?'Wagen '+(ow+1):'Open'}</small></button>`}).join('');
- const sh=[['truck',`Nieuwe wagen (${S.trucks.length}/4)`,500,S.trucks.length>=4],['cap',`Meer lading (+4, nu ${S.cap})`,400,S.cap>=30],['spd',`Snellere wagens (+10, nu ${S.speed})`,400,S.speed>=90]];
- $('shop').innerHTML=sh.map(x=>`<button onclick="buy('${x[0]}')" ${(S.money<x[2]||x[3]||S.over)?'disabled':''}>${x[1]} · ${eur(x[2])}</button>`).join('');
- $('log').innerHTML=S.over?`<p class="neg"><b>Failliet.</b> Je kas is negatief.</p><button class="go" onclick="init()">Opnieuw beginnen</button>`:(S.log.length?S.log.map(l=>`<p>${l}</p>`).join(''):'<p style="color:var(--mute);margin:0">Tip: combineer dichtbije bestellingen op één route. Elke rit kost loon en brandstof.</p>');
- $('run').disabled=S.over}
-init();
+  if(!S)return;
+  $('stats').innerHTML=`<div><b>Ronde ${S.day}</b><span>nu</span></div><div><b>${eur(S.money)}</b><span>kas, doel ${eur(GOAL)}</span></div><div><b>${S.cap}</b><span>lading per wagen</span></div><div><b>${S.speed} km/u</b><span>snelheid</span></div>`;
+
+  /* kaart */
+  let g=`<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="Kaart van Europa met bestellingen">`+baseMap();
+  [...S.trucks.keys()].filter(i=>i!==S.sel).concat(S.sel).forEach(i=>{
+    const t=S.trucks[i];if(!t.route.length)return;
+    const stops=[D,...t.route.map(id=>ord(id).t),D];let pts=[];
+    for(let k=0;k<stops.length-1;k++){const seg=path(stops[k],stops[k+1]);pts=pts.concat(k?seg.slice(1):seg)}
+    const c=CAR[i];
+    g+=`<polyline points="${pts.map(j=>CITIES[j].x.toFixed(1)+','+CITIES[j].y.toFixed(1)).join(' ')}" fill="none" stroke="${G}" stroke-width="${i===S.sel?6:4}" stroke-linejoin="round" stroke-linecap="${c.cap}"${c.dash?` stroke-dasharray="${c.dash}"`:''}/>`;
+  });
+  const open=new Set(S.orders.map(o=>o.t.i));
+  const items=[{c:D,r:9,text:D.n,kind:'depot'}];
+  S.orders.forEach(o=>items.push({c:o.t,r:11,text:`${o.t.n} ≤${o.dl}u`,kind:'order',o}));
+  CITIES.slice(1).filter(t=>!open.has(t.i)).forEach(t=>items.push({c:t,r:4,text:t.n,kind:'town'}));
+  const pl=labelLayout(items.map(it=>({x:it.c.x,y:it.c.y,r:it.r,text:it.text})));
+  items.forEach((it,k)=>{if(it.kind!=='town')return;g+=`<circle cx="${it.c.x.toFixed(1)}" cy="${it.c.y.toFixed(1)}" r="4" fill="${MUTE}"/>`+lab(pl[k],it.text,400)});
+  items.forEach((it,k)=>{
+    if(it.kind!=='order')return;
+    const o=it.o,ow=owner(o.id),x=o.t.x.toFixed(1),y=o.t.y.toFixed(1);
+    const pos=ow>=0?S.trucks[ow].route.indexOf(o.id)+1:'';
+    const m=ow>=0?marker(CAR[ow].shape,+x,+y,String(pos)):`<circle cx="${x}" cy="${y}" r="10" fill="${G}" stroke="${WIT}" stroke-width="2"/><text x="${x}" y="${(+y+4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="${WIT}" style="font-family:Barlow,Arial,sans-serif">${o.load}</text>`;
+    g+=`<g role="button" tabindex="0" style="cursor:pointer" aria-label="${o.t.n}, lading ${o.load}, uiterlijk ${o.dl} uur" data-order="${o.id}"><title>${o.t.n}: lading ${o.load}, ${Math.round(km(D,o.t))} km van het depot, ${eur(o.rew)}</title><circle cx="${x}" cy="${y}" r="16" fill="transparent"/>${m}${lab(pl[k],it.text,600)}</g>`;
+  });
+  g+=`<rect x="${(D.x-8).toFixed(1)}" y="${(D.y-8).toFixed(1)}" width="16" height="16" fill="${G}" stroke="${WIT}" stroke-width="2"/>`+lab(pl[0],D.n,600)+'</svg>';
+  $('spelkaart').innerHTML=g;
+
+  /* melding onder de kaart */
+  $('melding').innerHTML=S.note?`<div class="note stopn"><span class="badge">${S.note.label}</span><div>${S.note.text}</div></div>`:'';
+
+  /* wagenkeuze en routegegevens */
+  $('tabs').innerHTML=S.trucks.map((t,i)=>`<button class="sec" type="button" aria-pressed="${i===S.sel}" data-truck="${i}">${icon(i)}Wagen ${i+1}</button>`).join('');
+  const s=stats(S.trucks[S.sel]),n=net(s);
+  $('info').innerHTML=s.st.length
+    ?`<p>Lading <b>${s.load}/${S.cap}</b> · ${Math.round(s.dist)} km · ${fmt(s.time)} van ${SHIFT} u</p><p>Verwachte winst: <b>${n>=0?'+':''}${eur(n)}</b></p>`
+    :`<p class="sub">Deze wagen heeft nog geen route. Klik een bestelling aan op de kaart of in de lijst.</p>`;
+  $('notes').innerHTML=s.st.filter(x=>x.late).map(x=>`<div class="note warn"><span class="badge">Let op</span><div>Wagen ${S.sel+1} komt in ${x.o.t.n} ${fmt(x.arr-x.o.dl)} te laat aan. Je krijgt de helft van het bedrag.</div></div>`).join('');
+
+  /* bestellingen */
+  $('orders').innerHTML=S.orders.map(o=>{
+    const ow=owner(o.id);
+    return `<button class="row${ow===S.sel?' mine':''}" type="button" data-order="${o.id}"><span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>Uiterlijk na ${o.dl} u</small><span class="st"><small>${ow>=0?`Wagen ${ow+1}`:'Open'}</small>${ow>=0?icon(ow):''}</span></button>`;
+  }).join('');
+
+  /* investeren */
+  const sh=[['truck',`Nieuwe wagen (${S.trucks.length}/4)`,3000,S.trucks.length>=4],['cap',`Meer lading (+4, nu ${S.cap})`,2000,S.cap>=30],['spd',`Snellere wagens (+10, nu ${S.speed})`,2500,S.speed>=110]];
+  $('shop').innerHTML=sh.map(x=>`<button class="sec" type="button" data-buy="${x[0]}" ${(S.money<x[2]||x[3]||S.over)?'disabled':''}><span>${x[1]}</span><span>${eur(x[2])}</span></button>`).join('');
+
+  /* uitkomst van de vorige ronde */
+  $('log').innerHTML=S.over
+    ?`<div class="note stopn" style="margin-top:0"><span class="badge">Failliet</span><div>Je kas is negatief. Begin opnieuw met dezelfde bedrijfsnaam.</div></div><div class="btns"><button class="go" type="button" id="opnieuw">Opnieuw beginnen</button></div>`
+    :(S.log.length?S.log.map((l,i)=>`<p${i===0?' style="font-weight:600"':''}>${l}</p>`).join(''):`<p class="muted">Combineer bestellingen die langs dezelfde route liggen. Elke rit kost loon en brandstof. Met elke ronde komen er verder weg gelegen steden bij.</p>`);
+  $('run').disabled=S.over;
+}
+
+/* ---------- schermen en gebeurtenissen ---------- */
+function toon(spel){
+  $('startview').hidden=spel;$('spel').hidden=!spel;$('who').hidden=!spel;
+}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-order],[data-truck],[data-buy],#opnieuw');
+  if(!t||!S)return;
+  if(t.dataset.order)pick(+t.dataset.order);
+  else if(t.dataset.truck!=null)selTruck(+t.dataset.truck);
+  else if(t.dataset.buy)buy(t.dataset.buy);
+  else if(t.id==='opnieuw')init(S.naam,S.niveau);
+});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'&&e.key!==' ')return;
+  const t=e.target.closest&&e.target.closest('g[data-order]');
+  if(t&&S){e.preventDefault();pick(+t.dataset.order)}
+});
+$('run').addEventListener('click',runDay);
+$('wis').addEventListener('click',clearRoutes);
+try{const v=localStorage.getItem('tp-bedrijf');if(v)$('bedrijf').value=v}catch(e){}
+$('start').addEventListener('submit',e=>{
+  e.preventDefault();
+  const raw=$('bedrijf').value.trim(),naam=raw||'Jouw bedrijf';
+  try{localStorage.setItem('tp-bedrijf',raw)}catch(e){}
+  init(naam,document.querySelector('input[name=niveau]:checked').value);
+  $('spelnaam').textContent=naam;
+  toon(true);
+  $('spelnaam').focus();
+});
+$('nieuw').addEventListener('click',()=>{S=null;toon(false);$('bedrijf').focus()});
 </script>
+
 </body>
 </html>
