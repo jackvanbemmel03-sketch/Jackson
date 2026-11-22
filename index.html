@@ -163,7 +163,7 @@ details ol{margin:12px 0 0;padding-left:1.3rem;display:flex;flex-direction:colum
           <li>Je krijgt bestellingen uit Europese steden, elk met een lading en een deadline.</li>
           <li>Kies een wagen en klik de bestellingen aan in de volgorde waarin hij ze rijdt.</li>
           <li>Rijd de ronde. Een levering op tijd levert het volle bedrag op, te laat de helft.</li>
-          <li>Investeer in extra wagens, meer lading en hogere snelheid.</li>
+          <li>Koop een bus, bakwagen of trekker met trailer en investeer in hogere snelheid.</li>
         </ol>
       </details>
     </section>
@@ -231,7 +231,8 @@ ROADDEF.push(...JSON.parse("[[\"Amsterdam\", \"Almere\", \"A6\", \"294,338 336,3
 
 const W=700,H=793,KM=.42;
 const G='#1C542D',GD='#123A1F',TINT='#E3ECE5',WIT='#FFFFFF',MUTE='#59635C',LIJN='#C9D5CC';
-const FUEL=.4,WAGE=70,SHIFT=14,GOAL=15000;
+const TYPES={bus:{n:'Bus',price:1000,cap:5},bak:{n:'Bakwagen',price:2000,cap:10},trek:{n:'Trekker met trailer',price:3000,cap:20}};
+const MAXWAGENS=4,FUEL=.4,WAGE=70,SHIFT=14,GOAL=15000;
 const $=id=>document.getElementById(id);
 const eur=n=>(n<0?'−':'')+'€'+Math.abs(Math.round(n)).toLocaleString('nl-NL');
 const fmt=h=>h.toFixed(1).replace('.',',')+' u';
@@ -319,7 +320,7 @@ hero();
 const LEVELS={rustig:['Rustig',2500],normaal:['Normaal',1500],zwaar:['Zwaar',750]};
 let S=null;
 function init(naam,niveau){
-  S={naam,niveau,day:1,money:LEVELS[niveau][1],cap:10,speed:70,trucks:[{route:[]}],sel:0,orders:[],log:[],note:null,over:false,won:false,nid:1};
+  S={naam,niveau,day:1,money:LEVELS[niveau][1],speed:70,trucks:[{route:[],type:'bak'}],sel:0,orders:[],log:[],note:null,over:false,won:false,nid:1};
   newOrders();draw();
 }
 function newOrders(){
@@ -346,9 +347,10 @@ function pick(id){
   if(old)old.route=old.route.filter(x=>x!==id);
   cur.route.push(id);
   const s=stats(cur);
-  if(s.load>S.cap||s.time>SHIFT){
+  const cap=TYPES[cur.type].cap;
+  if(s.load>cap||s.time>SHIFT){
     cur.route.pop();if(old)old.route.push(id);
-    S.note={label:'Past niet',text:s.load>S.cap?'De lading is te zwaar voor deze wagen. Kies een andere wagen of minder bestellingen.':`Een rit duurt maximaal ${SHIFT} uur. Kies een kortere route of minder bestellingen.`};
+    S.note={label:'Past niet',text:s.load>cap?`De lading is te zwaar voor deze ${TYPES[cur.type].n.toLowerCase()} (maximaal ${cap}). Kies een andere wagen of minder bestellingen.`:`Een rit duurt maximaal ${SHIFT} uur. Kies een kortere route of minder bestellingen.`};
   }
   draw();
 }
@@ -372,18 +374,15 @@ function runDay(){
   draw();
 }
 function buy(k){
-  const c={truck:3000,cap:2000,spd:2500}[k];
-  if(S.money<c||S.over)return;
-  if(k==='truck'&&S.trucks.length<4)S.trucks.push({route:[]});
-  else if(k==='cap'&&S.cap<30)S.cap+=4;
-  else if(k==='spd'&&S.speed<110)S.speed+=10;
-  else return;
-  S.money-=c;S.note=null;draw();
+  if(S.over)return;
+  if(k==='spd'){if(S.money<2500||S.speed>=110)return;S.money-=2500;S.speed+=10}
+  else{const ty=TYPES[k];if(!ty||S.money<ty.price||S.trucks.length>=MAXWAGENS)return;S.money-=ty.price;S.trucks.push({route:[],type:k});S.sel=S.trucks.length-1}
+  S.note=null;draw();
 }
 
 function draw(){
   if(!S)return;
-  $('stats').innerHTML=`<div><b>Ronde ${S.day}</b><span>nu</span></div><div><b>${eur(S.money)}</b><span>kas, doel ${eur(GOAL)}</span></div><div><b>${S.cap}</b><span>lading per wagen</span></div><div><b>${S.speed} km/u</b><span>snelheid</span></div>`;
+  $('stats').innerHTML=`<div><b>Ronde ${S.day}</b><span>nu</span></div><div><b>${eur(S.money)}</b><span>kas, doel ${eur(GOAL)}</span></div><div><b>${S.trucks.length} van ${MAXWAGENS}</b><span>wagens</span></div><div><b>${S.speed} km/u</b><span>snelheid</span></div>`;
 
   /* kaart */
   let g=`<svg viewBox="36 0 628 ${H}" role="group" aria-label="Kaart van Nederland met bestellingen">`+baseMap();
@@ -414,10 +413,10 @@ function draw(){
   $('melding').innerHTML=S.note?`<div class="note stopn"><span class="badge">${S.note.label}</span><div>${S.note.text}</div></div>`:'';
 
   /* wagenkeuze en routegegevens */
-  $('tabs').innerHTML=S.trucks.map((t,i)=>`<button class="sec" type="button" aria-pressed="${i===S.sel}" data-truck="${i}">${icon(i)}Wagen ${i+1}</button>`).join('');
+  $('tabs').innerHTML=S.trucks.map((t,i)=>`<button class="sec" type="button" aria-pressed="${i===S.sel}" data-truck="${i}">${icon(i)}Wagen ${i+1} · ${TYPES[t.type].n}</button>`).join('');
   const s=stats(S.trucks[S.sel]),n=net(s);
   $('info').innerHTML=s.st.length
-    ?`<p>Lading <b>${s.load}/${S.cap}</b> · ${Math.round(s.dist)} km · ${fmt(s.time)} van ${SHIFT} u</p><p>Verwachte winst: <b>${n>=0?'+':''}${eur(n)}</b></p>`
+    ?`<p>Lading <b>${s.load}/${TYPES[S.trucks[S.sel].type].cap}</b> · ${Math.round(s.dist)} km · ${fmt(s.time)} van ${SHIFT} u</p><p>Verwachte winst: <b>${n>=0?'+':''}${eur(n)}</b></p>`
     :`<p class="sub">Deze wagen heeft nog geen route. Klik een bestelling aan op de kaart of in de lijst.</p>`;
   $('notes').innerHTML=s.st.filter(x=>x.late).map(x=>`<div class="note warn"><span class="badge">Let op</span><div>Wagen ${S.sel+1} komt in ${x.o.t.n} ${fmt(x.arr-x.o.dl)} te laat aan. Je krijgt de helft van het bedrag.</div></div>`).join('');
 
@@ -428,7 +427,8 @@ function draw(){
   }).join('');
 
   /* investeren */
-  const sh=[['truck',`Nieuwe wagen (${S.trucks.length}/4)`,3000,S.trucks.length>=4],['cap',`Meer lading (+4, nu ${S.cap})`,2000,S.cap>=30],['spd',`Snellere wagens (+10, nu ${S.speed})`,2500,S.speed>=110]];
+  const full=S.trucks.length>=MAXWAGENS;
+  const sh=[...Object.entries(TYPES).map(([k,ty])=>[k,`${ty.n}, ${ty.cap} lading`,ty.price,full]),['spd',`Snellere wagens (+10, nu ${S.speed})`,2500,S.speed>=110]];
   $('shop').innerHTML=sh.map(x=>`<button class="sec" type="button" data-buy="${x[0]}" ${(S.money<x[2]||x[3]||S.over)?'disabled':''}><span>${x[1]}</span><span>${eur(x[2])}</span></button>`).join('');
 
   /* uitkomst van de vorige ronde */
