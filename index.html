@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Transportplanner</title>
+<style>
+:root{--bg:#e8edf0;--panel:#fff;--ink:#1b2a33;--mute:#5c6b74;--line:#cdd6dc;--map:#dfe7ea;--ok:#2f7d4f;--bad:#b83a2a;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11191e;--panel:#1a252c;--ink:#e6edf1;--mute:#93a3ad;--line:#2b3a43;--map:#16222a;--ok:#5cc08a;--bad:#ee7a68;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#11191e;--panel:#1a252c;--ink:#e6edf1;--mute:#93a3ad;--line:#2b3a43;--map:#16222a;--ok:#5cc08a;--bad:#ee7a68;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:16px;display:grid;gap:14px;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+@media(max-width:820px){main{grid-template-columns:1fr}}
+h1{font-size:22px;margin:0 0 2px}
+.sub{color:var(--mute);margin:0 0 10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+.stats{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px}
+.stats b{display:block;font-size:20px}
+.stats span{color:var(--mute);font-size:13px}
+svg{width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--line)}
+svg g[role=button]{cursor:pointer}
+svg g[role=button]:focus-visible circle{stroke-width:4}
+button{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 11px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--ink)}
+button:focus-visible{outline:3px solid #1f5fbf;outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.go{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.tabs button[aria-pressed=true]{border-width:2px;font-weight:600}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer;width:100%;text-align:left}
+.row small{color:var(--mute)}
+.side{display:grid;gap:14px;align-content:start}
+.msg{min-height:1.4em;color:var(--bad);margin:6px 0 0}
+.log p{margin:2px 0}
+.pos{color:var(--ok)}.neg{color:var(--bad)}
+.shop{display:grid;gap:6px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+<section>
+<h1>Transportplanner</h1>
+<p class="sub">Kies een wagen, klik op de bestellingen op de kaart in de volgorde waarin hij ze rijdt. Elke dienst begint en eindigt bij het depot.</p>
+<div class="card"><div class="stats" id="stats"></div><div id="map"></div><p class="msg" id="msg" role="status"></p></div>
+</section>
+<section class="side">
+<div class="card"><div class="tabs" id="tabs"></div><div id="info"></div><div class="btns"><button class="go" id="run" onclick="runDay()">Rijd de dag</button><button onclick="clearRoutes()">Wis routes</button></div></div>
+<div class="card"><b>Bestellingen</b><div id="orders" style="margin-top:8px"></div></div>
+<div class="card"><b>Investeren</b><div class="shop" id="shop" style="margin-top:8px"></div></div>
+<div class="card log" id="log" aria-live="polite"></div>
+</section>
+</main>
+<script>
+const COL=['#1f5fbf','#d9822b','#2f7d4f','#8a3fa8'];
+const D={x:300,y:200,n:'Depot'},K=.5,FUEL=.5,WAGE=30,SHIFT=12;
+const TOWNS=[['Gouda',210,120],['Leiden',90,100],['Haarlem',70,200],['Breda',120,340],['Tiel',330,330],['Arnhem',500,290],['Amersfoort',470,130],['Zwolle',540,40],['Almere',380,60],['Delft',150,235]].map(a=>({n:a[0],x:a[1],y:a[2]}));
+let S;
+const km=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y)*K;
+const fmt=h=>h.toFixed(1).replace('.',',')+' u';
+const eur=n=>'€'+Math.round(n).toLocaleString('nl-NL');
+const $=id=>document.getElementById(id);
+function init(){S={day:1,money:300,cap:10,speed:50,trucks:[{route:[]}],sel:0,orders:[],log:[],over:false,won:false,nid:1};newOrders();draw()}
+function newOrders(){const n=Math.min(3+S.day,9),pool=[...TOWNS].sort(()=>Math.random()-.5).slice(0,n);
+ S.orders=pool.map(t=>{const load=2+Math.floor(Math.random()*5),d=km(D,t);return{id:S.nid++,t,load,dl:Math.ceil(d/50+2+Math.random()*5),rew:Math.round(40+load*4+d*1.6)}})}
+const owner=id=>S.trucks.findIndex(t=>t.route.includes(id));
+const ord=id=>S.orders.find(o=>o.id===id);
+function stats(t){let p=D,time=0,dist=0,load=0;const st=[];
+ for(const id of t.route){const o=ord(id),d=km(p,o.t);dist+=d;time+=d/S.speed;load+=o.load;st.push({o,arr:time,late:time>o.dl});p=o.t}
+ if(st.length){const b=km(p,D);dist+=b;time+=b/S.speed}
+ return{dist,time,load,st}}
+const revenue=s=>s.st.reduce((a,x)=>a+(x.late?.5:1)*x.o.rew,0);
+const net=s=>s.st.length?revenue(s)-s.dist*FUEL-WAGE:0;
+function msg(t){$('msg').textContent=t}
+function pick(id){if(S.over)return;const cur=S.trucks[S.sel],ow=owner(id);
+ if(ow===S.sel){cur.route=cur.route.filter(x=>x!==id);msg('');return draw()}
+ const old=ow>=0?S.trucks[ow]:null;if(old)old.route=old.route.filter(x=>x!==id);
+ cur.route.push(id);const s=stats(cur);
+ if(s.load>S.cap||s.time>SHIFT){cur.route.pop();if(old)old.route.push(id);
+  msg(s.load>S.cap?'Past niet: de lading is te zwaar voor deze wagen.':'Past niet: een dienst duurt maximaal 12 uur.');return draw()}
+ msg('');draw()}
+function clearRoutes(){S.trucks.forEach(t=>t.route=[]);msg('');draw()}
+function selTruck(i){S.sel=i;msg('');draw()}
+function runDay(){if(S.over)return;let tot=0;const L=[];
+ S.trucks.forEach((t,i)=>{const s=stats(t);if(!s.st.length)return;const late=s.st.filter(x=>x.late).length,n=net(s);tot+=n;
+  L.push(`Wagen ${i+1}: ${Math.round(s.dist)} km, ${s.st.length} leveringen${late?`, ${late} te laat (halve prijs)`:''}, ${n>=0?'+':'−'}${eur(Math.abs(n))}`)});
+ const un=S.orders.filter(o=>owner(o.id)<0);
+ if(un.length){tot-=un.length*30;L.push(`${un.length} bestelling${un.length>1?'en':''} niet geleverd: −${eur(un.length*30)} boete`)}
+ S.money+=tot;L.push(`<b>Dag ${S.day}: ${tot>=0?'+':'−'}${eur(Math.abs(tot))}</b>`);
+ S.log=L;S.day++;S.trucks.forEach(t=>t.route=[]);msg('');
+ if(S.money<0)S.over=true;else{newOrders();if(S.money>=5000&&!S.won){S.won=true;S.log.push('Je bedrijf haalt €5.000. Gewonnen! Je mag doorspelen.')}}
+ draw()}
+function buy(k){const c={truck:500,cap:400,spd:400}[k];if(S.money<c||S.over)return;
+ if(k==='truck'&&S.trucks.length<4)S.trucks.push({route:[]});else if(k==='cap'&&S.cap<30)S.cap+=4;else if(k==='spd'&&S.speed<90)S.speed+=10;else return;
+ S.money-=c;draw()}
+function draw(){
+ $('stats').innerHTML=`<div><b>Dag ${S.day}</b><span>nu</span></div><div><b class="${S.money<0?'neg':''}">${eur(S.money)}</b><span>kas</span></div><div><b>${S.cap}</b><span>lading per wagen</span></div><div><b>${S.speed} km/u</b><span>snelheid</span></div>`;
+ let g=`<svg viewBox="0 0 600 400" role="group" aria-label="Kaart met bestellingen"><rect width="600" height="400" fill="var(--map)"/>`;
+ S.trucks.forEach((t,i)=>{if(!t.route.length)return;const pts=[D,...t.route.map(id=>ord(id).t),D];
+  g+=`<polyline points="${pts.map(p=>p.x+','+p.y).join(' ')}" fill="none" stroke="${COL[i]}" stroke-width="${i===S.sel?4:2.5}" stroke-opacity=".85" stroke-linejoin="round"/>`});
+ const open=new Set(S.orders.map(o=>o.t.n));
+ TOWNS.filter(t=>!open.has(t.n)).forEach(t=>{g+=`<circle cx="${t.x}" cy="${t.y}" r="4" fill="var(--mute)"/><text x="${t.x}" y="${t.y+16}" text-anchor="middle" font-size="11" fill="var(--mute)">${t.n}</text>`});
+ S.orders.forEach(o=>{const ow=owner(o.id),f=ow>=0?COL[ow]:'var(--panel)',tc=ow>=0?'#fff':'var(--ink)',pos=ow>=0?S.trucks[ow].route.indexOf(o.id)+1:'';
+  g+=`<g role="button" tabindex="0" aria-label="${o.t.n}, lading ${o.load}, deadline ${o.dl} uur" onclick="pick(${o.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pick(${o.id})}"><circle cx="${o.t.x}" cy="${o.t.y}" r="17" fill="${f}" stroke="var(--ink)" stroke-width="2"/><text x="${o.t.x}" y="${o.t.y+5}" text-anchor="middle" font-size="14" font-weight="700" fill="${tc}">${o.load}</text><text x="${o.t.x}" y="${o.t.y+32}" text-anchor="middle" font-size="11" fill="var(--ink)">${o.t.n} · ≤${o.dl} u</text>${pos?`<text x="${o.t.x+16}" y="${o.t.y-12}" font-size="12" font-weight="700" fill="${COL[ow]}">#${pos}</text>`:''}</g>`});
+ g+=`<rect x="${D.x-12}" y="${D.y-12}" width="24" height="24" rx="4" fill="var(--ink)"/><text x="${D.x}" y="${D.y+28}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">Depot</text></svg>`;
+ $('map').innerHTML=g;
+ $('tabs').innerHTML=S.trucks.map((t,i)=>`<button aria-pressed="${i===S.sel}" style="border-color:${COL[i]}" onclick="selTruck(${i})">Wagen ${i+1}</button>`).join('');
+ const s=stats(S.trucks[S.sel]),n=net(s);
+ $('info').innerHTML=s.st.length?`<p style="margin:0">Lading <b>${s.load}/${S.cap}</b> · ${Math.round(s.dist)} km · ${fmt(s.time)} van ${SHIFT} u<br>Verwachte winst: <b class="${n>=0?'pos':'neg'}">${n>=0?'+':'−'}${eur(Math.abs(n))}</b>${s.st.some(x=>x.late)?' <span class="neg">(let op: te laat)</span>':''}</p>`:`<p style="margin:0;color:var(--mute)">Deze wagen heeft nog geen route. Klik een bestelling aan.</p>`;
+ $('orders').innerHTML=S.orders.map(o=>{const ow=owner(o.id);return`<button class="row" onclick="pick(${o.id})"><span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>Uiterlijk na ${o.dl} u</small><small>${ow>=0?'Wagen '+(ow+1):'Open'}</small></button>`}).join('');
+ const sh=[['truck',`Nieuwe wagen (${S.trucks.length}/4)`,500,S.trucks.length>=4],['cap',`Meer lading (+4, nu ${S.cap})`,400,S.cap>=30],['spd',`Snellere wagens (+10, nu ${S.speed})`,400,S.speed>=90]];
+ $('shop').innerHTML=sh.map(x=>`<button onclick="buy('${x[0]}')" ${(S.money<x[2]||x[3]||S.over)?'disabled':''}>${x[1]} · ${eur(x[2])}</button>`).join('');
+ $('log').innerHTML=S.over?`<p class="neg"><b>Failliet.</b> Je kas is negatief.</p><button class="go" onclick="init()">Opnieuw beginnen</button>`:(S.log.length?S.log.map(l=>`<p>${l}</p>`).join(''):'<p style="color:var(--mute);margin:0">Tip: combineer dichtbije bestellingen op één route. Elke rit kost loon en brandstof.</p>');
+ $('run').disabled=S.over}
+init();
+</script>
+</body>
+</html>
