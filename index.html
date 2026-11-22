@@ -272,11 +272,13 @@ const baseMap=()=>{
   let s=`<rect x="0" width="${W}" height="${H}" fill="#F3F6F4"/>`;
   s+=`<path d="${NEIGHP}" fill="${TINT}" stroke="${LIJN}" stroke-width="1" stroke-linejoin="round" fill-rule="evenodd"/>`;
   s+=`<path d="${NLP}" fill="${WIT}" stroke="${MUTE}" stroke-opacity=".5" stroke-width="1.2" stroke-linejoin="round" fill-rule="evenodd"/>`;
-  ROADS.forEach(r=>{s+=`<polyline points="${r.pts.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')}" fill="none" stroke="${MUTE}" stroke-opacity=".5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><title>${r.nr}: ${r.a.n} – ${r.b.n}, ${Math.round(r.len)} km</title></polyline>`});
+  s+=`<g opacity=".5">`;
+  ROADS.forEach(r=>{s+=`<polyline points="${r.pts.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')}" fill="none" stroke="${MUTE}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><title>${r.nr}: ${r.a.n} – ${r.b.n}, ${Math.round(r.len)} km</title></polyline>`});
   const ap=A15.split(' ').map(p=>p.split(',').map(Number));
-  s+=`<polyline points="${A15}" fill="none" stroke="${GD}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><title>A15: Maasvlakte – Rotterdam – Gorinchem – Tiel – Ressen, circa 136 km snelweg</title></polyline>`;
-  s+=`<polyline points="${A2}" fill="none" stroke="${GD}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><title>A2: Amsterdam – Utrecht – 's-Hertogenbosch – Eindhoven – Maastricht, circa 217 km snelweg</title></polyline>`;
-  s+=`<polyline points="${A7}" fill="none" stroke="${GD}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><title>A7: Zaandam – Hoorn – Afsluitdijk – Heerenveen – Groningen – Duitse grens, circa 236 km snelweg</title></polyline>`;
+  s+=`<polyline points="${A15}" fill="none" stroke="${MUTE}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><title>A15: Maasvlakte – Rotterdam – Gorinchem – Tiel – Ressen, circa 136 km snelweg</title></polyline>`;
+  s+=`<polyline points="${A2}" fill="none" stroke="${MUTE}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><title>A2: Amsterdam – Utrecht – 's-Hertogenbosch – Eindhoven – Maastricht, circa 217 km snelweg</title></polyline>`;
+  s+=`<polyline points="${A7}" fill="none" stroke="${MUTE}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><title>A7: Zaandam – Hoorn – Afsluitdijk – Heerenveen – Groningen – Duitse grens, circa 236 km snelweg</title></polyline>`;
+  s+=`</g>`;
   return s;
 };
 
