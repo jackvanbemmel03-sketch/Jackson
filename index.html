@@ -116,8 +116,6 @@ details ol{margin:12px 0 0;padding-left:1.3rem;display:flex;flex-direction:colum
 </style>
 </head>
 <body>
-
-
 <div class="page">
   <header class="top">
     <div class="logo" role="img" aria-label="Jackson, AI Game Ontwikkeling">
@@ -231,8 +229,8 @@ ROADDEF.push(...JSON.parse("[[\"Amsterdam\", \"Almere\", \"A6\", \"294,338 336,3
 
 const W=700,H=793,KM=.42;
 const G='#1C542D',GD='#123A1F',TINT='#E3ECE5',WIT='#FFFFFF',MUTE='#59635C',LIJN='#C9D5CC';
-const TYPES={bus:{n:'Bus',price:1000,cap:5},bak:{n:'Bakwagen',price:2000,cap:10},trek:{n:'Trekker met trailer',price:3000,cap:20}};
-const MAXWAGENS=4,FUEL=.4,WAGE=70,SHIFT=14,GOAL=15000;
+const TYPES={bus:{n:'Bus',price:1000,cap:5,fuel:.3,wage:50},bak:{n:'Bakwagen',price:2000,cap:10,fuel:.4,wage:70},trek:{n:'Trekker met trailer',price:3000,cap:20,fuel:.6,wage:100}};
+const MAXWAGENS=4,SHIFT=14,GOAL=15000;
 const $=id=>document.getElementById(id);
 const eur=n=>(n<0?'−':'')+'€'+Math.abs(Math.round(n)).toLocaleString('nl-NL');
 const fmt=h=>h.toFixed(1).replace('.',',')+' u';
@@ -334,10 +332,10 @@ function stats(t){
   let p=D,time=0,dist=0,load=0;const st=[];
   for(const id of t.route){const o=ord(id),d=km(p,o.t);dist+=d;time+=d/S.speed;load+=o.load;st.push({o,arr:time,late:time>o.dl});p=o.t}
   if(st.length){const b=km(p,D);dist+=b;time+=b/S.speed}
-  return{dist,time,load,st};
+  const ty=TYPES[t.type];return{dist,time,load,st,fuel:ty.fuel,wage:ty.wage};
 }
 const revenue=s=>s.st.reduce((a,x)=>a+(x.late?.5:1)*x.o.rew,0);
-const net=s=>s.st.length?revenue(s)-s.dist*FUEL-WAGE:0;
+const net=s=>s.st.length?revenue(s)-s.dist*s.fuel-s.wage:0;
 function pick(id){
   if(S.over)return;
   const cur=S.trucks[S.sel],ow=owner(id);
@@ -428,7 +426,7 @@ function draw(){
 
   /* investeren */
   const full=S.trucks.length>=MAXWAGENS;
-  const sh=[...Object.entries(TYPES).map(([k,ty])=>[k,`${ty.n}, ${ty.cap} lading`,ty.price,full]),['spd',`Snellere wagens (+10, nu ${S.speed})`,2500,S.speed>=110]];
+  const sh=[...Object.entries(TYPES).map(([k,ty])=>[k,`${ty.n}, ${ty.cap} lading, €${ty.fuel.toFixed(2).replace(".",",")}/km, loon €${ty.wage}`,ty.price,full]),['spd',`Snellere wagens (+10, nu ${S.speed})`,2500,S.speed>=110]];
   $('shop').innerHTML=sh.map(x=>`<button class="sec" type="button" data-buy="${x[0]}" ${(S.money<x[2]||x[3]||S.over)?'disabled':''}><span>${x[1]}</span><span>${eur(x[2])}</span></button>`).join('');
 
   /* uitkomst van de vorige ronde */
