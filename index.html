@@ -106,6 +106,12 @@ details ol{margin:12px 0 0;padding-left:1.3rem;display:flex;flex-direction:colum
 .row{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 12px;background:var(--wit);border:2px solid var(--lijn);border-radius:var(--hoek-2);color:var(--inkt);font:400 1rem/1.4 var(--sans);text-align:left;cursor:pointer;width:100%}
 .row:hover{background:var(--parelgroen-tint)}
 .row.mine{border-color:var(--parelgroen);background:var(--parelgroen-tint)}
+.row.vp{border-color:var(--parelgroen);background:var(--parelgroen-tint)}
+.row.vp.mine{background:#CFE0D3}
+.row.vrij{border-style:dashed}
+.tag{display:inline-block;font:600 .75rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;padding:3px 6px;border-radius:var(--hoek-1);margin-right:8px;vertical-align:1px}
+.tag.vp{background:var(--parelgroen);color:var(--wit)}
+.tag.vrij{border:1px solid var(--parelgroen);color:var(--parelgroen)}
 .row small{font-size:.875rem;color:var(--inkt-gedempt)}
 .row .st{display:inline-flex;align-items:center;gap:6px;justify-self:end}
 .shop{display:flex;flex-direction:column;gap:8px}
@@ -431,8 +437,9 @@ function draw(){
     if(it.kind!=='order')return;
     const o=it.o,ow=owner(o.id),x=o.t.x.toFixed(1),y=o.t.y.toFixed(1);
     const pos=ow>=0?S.trucks[ow].route.indexOf(o.id)+1:'';
-    const m=ow>=0?marker(CAR[ow].shape,+x,+y,String(pos)):`<circle cx="${x}" cy="${y}" r="10" fill="${G}" stroke="${WIT}" stroke-width="2"/><text x="${x}" y="${(+y+4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="${WIT}" style="font-family:Barlow,Arial,sans-serif">${o.load}</text>`;
-    g+=`<g role="button" tabindex="0" style="cursor:pointer" aria-label="${o.t.n}, lading ${o.load}, uiterlijk ${o.dl} uur" data-order="${o.id}"><title>${o.t.n}: lading ${o.load}, ${Math.round(km(D,o.t))} km van het depot, ${eur(o.rew)}</title><circle cx="${x}" cy="${y}" r="16" fill="transparent"/>${m}${lab(pl[k],it.text,600)}</g>`;
+    const ring=o.vp?`<circle cx="${x}" cy="${y}" r="${ow>=0?19:15}" fill="none" stroke="${G}" stroke-width="3"/>`:'';
+    const m=ring+(ow>=0?marker(CAR[ow].shape,+x,+y,String(pos)):(o.vp?`<circle cx="${x}" cy="${y}" r="10" fill="${G}" stroke="${WIT}" stroke-width="2"/><text x="${x}" y="${(+y+4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="${WIT}" style="font-family:Barlow,Arial,sans-serif">${o.load}</text>`:`<circle cx="${x}" cy="${y}" r="10" fill="${WIT}" stroke="${G}" stroke-width="2.5" stroke-dasharray="4 3"/><text x="${x}" y="${(+y+4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="${G}" style="font-family:Barlow,Arial,sans-serif">${o.load}</text>`));
+    g+=`<g role="button" tabindex="0" style="cursor:pointer" aria-label="${o.vp?'Verplicht':'Vrijwillig'}, ${o.t.n}, lading ${o.load}, uiterlijk ${o.dl} uur" data-order="${o.id}"><title>${o.vp?'Verplicht: ':'Vrijwillig: '}${o.t.n}: lading ${o.load}, ${Math.round(km(D,o.t))} km van het depot, ${eur(o.rew)}</title><circle cx="${x}" cy="${y}" r="16" fill="transparent"/>${m}${lab(pl[k],it.text,600)}</g>`;
   });
   g+=`<rect x="${(D.x-8).toFixed(1)}" y="${(D.y-8).toFixed(1)}" width="16" height="16" fill="${G}" stroke="${WIT}" stroke-width="2"/>`+lab(pl[0],D.n,600)+'</svg>';
   $('spelkaart').innerHTML=g;
@@ -452,7 +459,7 @@ function draw(){
   /* bestellingen */
   const row=o=>{
     const ow=owner(o.id);
-    return `<button class="row${ow===S.sel?' mine':''}" type="button" data-order="${o.id}"><span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>Uiterlijk na ${o.dl} u · ${klant(o.t)}${o.vp?` · ${KL[o.kl]} +${KB[o.kl]*100}%`:''}</small><span class="st"><small>${ow>=0?`Wagen ${ow+1}`:'Open'}</small>${ow>=0?icon(ow):''}</span></button>`;
+    return `<button class="row ${o.vp?'vp':'vrij'}${ow===S.sel?' mine':''}" type="button" data-order="${o.id}"><span><span class="tag ${o.vp?'vp':'vrij'}">${o.vp?'Verplicht':'Vrijwillig'}</span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>Uiterlijk na ${o.dl} u · ${klant(o.t)}${o.vp?` · ${KL[o.kl]} +${KB[o.kl]*100}%`:''}</small><span class="st"><small>${ow>=0?`Wagen ${ow+1}`:'Open'}</small>${ow>=0?icon(ow):''}</span></button>`;
   };
   const vpo=S.orders.filter(o=>o.vp),bo=S.orders.filter(o=>!o.vp);
   $('orders').innerHTML=(vpo.length?`<p class="muted" style="margin:0 0 6px"><b>Verplichte opdrachten</b> van vaste klanten. Niet leveren kost €120 boete en vertrouwen.</p>`+vpo.map(row).join(''):'')+`<p class="muted" style="margin:${vpo.length?'14px':'0'} 0 6px"><b>Vrachtenbeurs</b>. Deze vrachten zijn vrijwillig: laat je ze liggen, dan kost dat niets.</p>`+(bo.length?bo.map(row).join(''):`<p class="muted">Geen vrachten op de beurs.</p>`);
