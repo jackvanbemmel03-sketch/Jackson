@@ -326,7 +326,7 @@ const LEVELS={rustig:['Rustig',2500],normaal:['Normaal',1500],zwaar:['Zwaar',750
 let S=null;
 /* vaste klanten: elke stad heeft een vaste klant; op tijd leveren bouwt vertrouwen op */
 const PRE=['Groothandel','Bakkerij','Bouwmarkt','Supermarkt','Tuincentrum','Drukkerij','Slagerij','Meubelzaak'];
-const KL=['Nieuwe klant','Vaste klant','Topklant'],KB=[0,.1,.2],KP=[0,3,6];
+const KL=['Nieuwe klant','Vaste klant','Topklant'],KB=[0,.1,.2],KP=[0,2,5];
 const klant=t=>PRE[t.i%PRE.length]+' '+t.n;
 const lvl=p=>p>=KP[2]?2:p>=KP[1]?1:0;
 const relOf=t=>(S.rel&&S.rel[t.i])||0;
@@ -347,7 +347,7 @@ function mk(t,vp){
 function newOrders(){
   const maxD=Math.min(120+30*(S.day-1),S.speed*SHIFT/2*.95);
   const inr=CITIES.filter(t=>t!==D&&km(D,t)<=maxD);
-  const vast=inr.filter(t=>lvl(relOf(t))>0&&Math.random()<(lvl(relOf(t))===2?.85:.6)).sort((a,b)=>relOf(b)-relOf(a)).slice(0,S.trucks.length);
+  const vast=inr.filter(t=>lvl(relOf(t))>0&&Math.random()<(lvl(relOf(t))===2?1:.85)).sort((a,b)=>relOf(b)-relOf(a)).slice(0,Math.min(6,S.trucks.length*2));
   const beurs=inr.filter(t=>!vast.includes(t)).sort(()=>Math.random()-.5).slice(0,Math.min(3+S.day,9));
   S.orders=[...vast.map(t=>mk(t,true)),...beurs.map(t=>mk(t,false))];
 }
