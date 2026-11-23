@@ -334,10 +334,16 @@ function init(naam,niveau){
   S={naam,niveau,day:1,money:LEVELS[niveau][1],speed:70,trucks:[{route:[],type:'bak'}],sel:0,orders:[],log:[],note:null,over:false,won:false,nid:1,rel:{}};
   newOrders();draw();
 }
+function mk(t,vp){
+  const load=2+Math.floor(Math.random()*5),d=km(D,t),k=vp?lvl(relOf(t)):0,f=vp?1:.9+Math.random()*.35;
+  return{id:S.nid++,t,load,dl:Math.ceil(d/70+3+Math.random()*9),rew:Math.round((90+load*14+d*4)*(1+KB[k])*f),kl:k,vp};
+}
 function newOrders(){
   const maxD=Math.min(120+30*(S.day-1),S.speed*SHIFT/2*.95);
-  const pool=CITIES.filter(t=>t!==D&&km(D,t)<=maxD).map(t=>[t,Math.random()-lvl(relOf(t))*.3]).sort((a,b)=>a[1]-b[1]).map(x=>x[0]).slice(0,Math.min(3+S.day,9));
-  S.orders=pool.map(t=>{const load=2+Math.floor(Math.random()*5),d=km(D,t);return{id:S.nid++,t,load,dl:Math.ceil(d/70+3+Math.random()*9),rew:Math.round((90+load*14+d*4)*(1+KB[lvl(relOf(t))])),kl:lvl(relOf(t))}});
+  const inr=CITIES.filter(t=>t!==D&&km(D,t)<=maxD);
+  const vast=inr.filter(t=>lvl(relOf(t))>0&&Math.random()<(lvl(relOf(t))===2?.85:.6)).sort((a,b)=>relOf(b)-relOf(a)).slice(0,S.trucks.length);
+  const beurs=inr.filter(t=>!vast.includes(t)).sort(()=>Math.random()-.5).slice(0,Math.min(3+S.day,9));
+  S.orders=[...vast.map(t=>mk(t,true)),...beurs.map(t=>mk(t,false))];
 }
 const owner=id=>S.trucks.findIndex(t=>t.route.includes(id));
 const ord=id=>S.orders.find(o=>o.id===id);
@@ -377,9 +383,9 @@ function runDay(){
     s.st.forEach(x=>relAdd(x.o.t,x.late?-1:1,K));
     L.push(`Wagen ${i+1}: ${Math.round(s.dist)} km, ${s.st.length} ${s.st.length===1?'levering':'leveringen'}${late?`, ${late} te laat (halve prijs)`:''}, ${n>=0?'+':''}${eur(n)}`);
   });
-  const un=S.orders.filter(o=>owner(o.id)<0);
-  if(un.length){tot-=un.length*120;L.push(`${un.length} ${un.length===1?'bestelling':'bestellingen'} niet geleverd: −${eur(un.length*120).replace('−','')} boete`)}
-  un.forEach(o=>relAdd(o.t,-1,K));
+  const un=S.orders.filter(o=>o.vp&&owner(o.id)<0);
+  if(un.length){tot-=un.length*120;L.push(`${un.length} verplichte ${un.length===1?'opdracht':'opdrachten'} niet geleverd: −${eur(un.length*120).replace('−','')} boete`)}
+  un.forEach(o=>relAdd(o.t,-2,K));
   L.push(...K);
   S.money+=tot;
   L.unshift(`Ronde ${S.day}: ${tot>=0?'+':''}${eur(tot)}`);
@@ -440,13 +446,16 @@ function draw(){
   $('info').innerHTML=s.st.length
     ?`<p>Lading <b>${s.load}/${TYPES[S.trucks[S.sel].type].cap}</b> · ${Math.round(s.dist)} km · ${fmt(s.time)} van ${SHIFT} u</p><p>Verwachte winst: <b>${n>=0?'+':''}${eur(n)}</b></p>`
     :`<p class="sub">Deze wagen heeft nog geen route. Klik een bestelling aan op de kaart of in de lijst.</p>`;
-  $('notes').innerHTML=s.st.filter(x=>x.late).map(x=>`<div class="note warn"><span class="badge">Let op</span><div>Wagen ${S.sel+1} komt in ${x.o.t.n} ${fmt(x.arr-x.o.dl)} te laat aan. Je krijgt de helft van het bedrag.</div></div>`).join('');
+  const vw=S.orders.filter(o=>o.vp&&owner(o.id)<0).map(o=>`<div class="note warn"><span class="badge">Verplicht</span><div>De opdracht naar ${o.t.n} (${klant(o.t)}) is nog niet ingepland. Niet leveren kost €120 boete.</div></div>`).join('');
+  $('notes').innerHTML=vw+s.st.filter(x=>x.late).map(x=>`<div class="note warn"><span class="badge">Let op</span><div>Wagen ${S.sel+1} komt in ${x.o.t.n} ${fmt(x.arr-x.o.dl)} te laat aan. Je krijgt de helft van het bedrag.</div></div>`).join('');
 
   /* bestellingen */
-  $('orders').innerHTML=S.orders.map(o=>{
+  const row=o=>{
     const ow=owner(o.id);
-    return `<button class="row${ow===S.sel?' mine':''}" type="button" data-order="${o.id}"><span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>Uiterlijk na ${o.dl} u · ${klant(o.t)}${o.kl?` · ${KL[o.kl]} +${KB[o.kl]*100}%`:''}</small><span class="st"><small>${ow>=0?`Wagen ${ow+1}`:'Open'}</small>${ow>=0?icon(ow):''}</span></button>`;
-  }).join('');
+    return `<button class="row${ow===S.sel?' mine':''}" type="button" data-order="${o.id}"><span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>Uiterlijk na ${o.dl} u · ${klant(o.t)}${o.vp?` · ${KL[o.kl]} +${KB[o.kl]*100}%`:''}</small><span class="st"><small>${ow>=0?`Wagen ${ow+1}`:'Open'}</small>${ow>=0?icon(ow):''}</span></button>`;
+  };
+  const vpo=S.orders.filter(o=>o.vp),bo=S.orders.filter(o=>!o.vp);
+  $('orders').innerHTML=(vpo.length?`<p class="muted" style="margin:0 0 6px"><b>Verplichte opdrachten</b> van vaste klanten. Niet leveren kost €120 boete en vertrouwen.</p>`+vpo.map(row).join(''):'')+`<p class="muted" style="margin:${vpo.length?'14px':'0'} 0 6px"><b>Vrachtenbeurs</b>. Deze vrachten zijn vrijwillig: laat je ze liggen, dan kost dat niets.</p>`+(bo.length?bo.map(row).join(''):`<p class="muted">Geen vrachten op de beurs.</p>`);
 
   /* investeren */
   const full=S.trucks.length>=MAXWAGENS;
