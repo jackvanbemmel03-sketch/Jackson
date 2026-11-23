@@ -112,6 +112,12 @@ details ol{margin:12px 0 0;padding-left:1.3rem;display:flex;flex-direction:colum
 .tag{display:inline-block;font:600 .75rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;padding:3px 6px;border-radius:var(--hoek-1);margin-right:8px;vertical-align:1px}
 .tag.vp{background:var(--parelgroen);color:var(--wit)}
 .tag.vrij{border:1px solid var(--parelgroen);color:var(--parelgroen)}
+.row.td{border-color:var(--parelgroen-donker);border-width:3px;background:var(--wit)}
+.row.td.mine{background:var(--parelgroen-tint)}
+.tag.td{background:var(--parelgroen-donker);color:var(--wit);border-radius:0}
+.tn{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;padding:10px 12px;border:2px solid var(--parelgroen-donker);border-radius:var(--hoek-2);background:var(--wit)}
+.tn small{font-size:.875rem;color:var(--inkt-gedempt);grid-column:1/-1}
+.tn.act{background:var(--parelgroen-tint)}
 .row small{font-size:.875rem;color:var(--inkt-gedempt)}
 .row .st{display:inline-flex;align-items:center;gap:6px;justify-self:end}
 .shop{display:flex;flex-direction:column;gap:8px}
@@ -189,6 +195,7 @@ details ol{margin:12px 0 0;padding-left:1.3rem;display:flex;flex-direction:colum
         <div class="btns"><button class="go" id="run" type="button">Rijd de ronde</button><button class="sec" id="wis" type="button">Wis routes</button></div>
       </div>
       <div class="card"><h2>Bestellingen</h2><div class="orders" id="orders"></div></div>
+      <div class="card"><h2>Aanbestedingen</h2><div class="orders" id="tenders"></div></div>
       <div class="card"><h2>Investeren</h2><div class="shop" id="shop"></div></div>
       <div class="card log" id="log" aria-live="polite"></div>
     </section>
@@ -337,12 +344,35 @@ function relAdd(t,d,L){
   else if(lb<la)L.push(`${klant(t)} is teruggezakt naar ${KL[lb].toLowerCase()}.`);
 }
 function init(naam,niveau){
-  S={naam,niveau,day:1,money:LEVELS[niveau][1],speed:70,trucks:[{route:[],type:'bak'}],sel:0,orders:[],log:[],note:null,over:false,won:false,nid:1,rel:{}};
+  S={naam,niveau,day:1,money:LEVELS[niveau][1],speed:70,trucks:[{route:[],type:'bak'}],sel:0,orders:[],log:[],note:null,over:false,won:false,nid:1,rel:{},active:null,tenders:[]};
   newOrders();draw();
 }
 function mk(t,vp){
   const load=2+Math.floor(Math.random()*5),d=km(D,t),k=vp?lvl(relOf(t)):0,f=vp?1:.9+Math.random()*.35;
   return{id:S.nid++,t,load,dl:Math.ceil(d/70+3+Math.random()*9),rew:Math.round((90+load*14+d*4)*(1+KB[k])*f),kl:k,vp};
+}
+const TFEE=150,PART=10;
+const partRew=t=>Math.round(90+PART*14+km(D,t)*4);
+function tenderVal(td){return td.parts*partRew(td.t)}
+function tenderChance(td){
+  const cap=S.trucks.reduce((a,t)=>a+TYPES[t.type].cap,0)*td.rondes;
+  return Math.max(.2,Math.min(.9,.3+.5*Math.min(1,cap/td.load)+.1*lvl(relOf(td.t))));
+}
+function genTenders(inr){
+  const c=inr.slice().sort(()=>Math.random()-.5).slice(0,2);
+  S.tenders=c.map(t=>{const load=PART*(2+Math.floor(Math.random()*5));return{id:S.nid++,t,load,parts:load/PART,rondes:load>=60?3:2+(Math.random()<.5?1:0)}});
+}
+function partOrders(t,n){return Array.from({length:n},()=>({id:S.nid++,t,load:PART,dl:99,rew:partRew(t),kl:0,vp:false,td:true}))}
+function inschrijf(id){
+  const td=S.tenders.find(x=>x.id===id);
+  if(!td||S.over||S.active||S.money<TFEE)return;
+  S.money-=TFEE;S.tenders=S.tenders.filter(x=>x!==td);
+  if(Math.random()<tenderChance(td)){
+    S.active={t:td.t,load:td.load,parts:td.parts,left:td.parts,rondes:td.rondes,rleft:td.rondes,val:tenderVal(td)};
+    S.orders.push(...partOrders(td.t,td.parts));
+    S.note={label:'Gewonnen',text:`Je hebt de aanbesteding gewonnen: ${td.load} lading naar ${td.t.n} binnen ${td.rondes} rondes. De vrachten staan onder Bestellingen.`};
+  }else S.note={label:'Niet gewonnen',text:`Een concurrent kreeg de aanbesteding voor ${td.t.n}. De inschrijfkosten van ${eur(TFEE)} ben je kwijt.`};
+  draw();
 }
 function newOrders(){
   const maxD=Math.min(120+30*(S.day-1),S.speed*SHIFT/2*.95);
@@ -350,6 +380,8 @@ function newOrders(){
   const vast=inr.filter(t=>lvl(relOf(t))>0&&Math.random()<(lvl(relOf(t))===2?1:.85)).sort((a,b)=>relOf(b)-relOf(a)).slice(0,Math.min(6,S.trucks.length*2));
   const beurs=inr.filter(t=>!vast.includes(t)).sort(()=>Math.random()-.5).slice(0,Math.min(3+S.day,9));
   S.orders=[...vast.map(t=>mk(t,true)),...beurs.map(t=>mk(t,false))];
+  if(S.active)S.orders.push(...partOrders(S.active.t,S.active.left));
+  genTenders(inr);
 }
 const owner=id=>S.trucks.findIndex(t=>t.route.includes(id));
 const ord=id=>S.orders.find(o=>o.id===id);
@@ -382,16 +414,22 @@ function clearRoutes(){S.trucks.forEach(t=>t.route=[]);S.note=null;draw()}
 function selTruck(i){S.sel=i;S.note=null;draw()}
 function runDay(){
   if(S.over)return;
-  let tot=0;const L=[],K=[];
+  let tot=0,dl=0;const L=[],K=[];
   S.trucks.forEach((t,i)=>{
     const s=stats(t);if(!s.st.length)return;
     const late=s.st.filter(x=>x.late).length,n=net(s);tot+=n;
-    s.st.forEach(x=>relAdd(x.o.t,x.late?-1:1,K));
+    s.st.forEach(x=>{if(!x.o.td)relAdd(x.o.t,x.late?-1:1,K);else dl++});
     L.push(`Wagen ${i+1}: ${Math.round(s.dist)} km, ${s.st.length} ${s.st.length===1?'levering':'leveringen'}${late?`, ${late} te laat (halve prijs)`:''}, ${n>=0?'+':''}${eur(n)}`);
   });
   const un=S.orders.filter(o=>o.vp&&owner(o.id)<0);
   if(un.length){tot-=un.length*120;L.push(`${un.length} verplichte ${un.length===1?'opdracht':'opdrachten'} niet geleverd: −${eur(un.length*120).replace('−','')} boete`)}
   un.forEach(o=>relAdd(o.t,-2,K));
+  if(S.active){
+    const A=S.active;A.left=Math.max(0,A.left-dl);A.rleft--;
+    if(A.left===0){const b=Math.round(A.val*.35);tot+=b;K.push(`Aanbesteding ${A.t.n} gehaald: bonus +${eur(b)}.`);S.active=null}
+    else if(A.rleft<=0){const f=Math.round(A.val*.25);tot-=f;K.push(`Aanbesteding ${A.t.n} niet op tijd af (${A.left} van ${A.parts} vrachten ontbreken): boete −${eur(f).replace('−','')}.`);S.active=null}
+    else K.push(`Aanbesteding ${A.t.n}: nog ${A.left} van ${A.parts} vrachten, nog ${A.rleft} ${A.rleft===1?'ronde':'rondes'}.`);
+  }
   L.push(...K);
   S.money+=tot;
   L.unshift(`Ronde ${S.day}: ${tot>=0?'+':''}${eur(tot)}`);
@@ -429,7 +467,8 @@ function draw(){
   });
   const open=new Set(S.orders.map(o=>o.t.i));
   const items=[{c:D,r:9,text:D.n,kind:'depot'}];
-  S.orders.forEach(o=>items.push({c:o.t,r:11,text:`${o.t.n} ≤${o.dl}u`,kind:'order',o}));
+  const tdFirst=S.orders.find(o=>o.td&&owner(o.id)<0),tdN=S.orders.filter(o=>o.td&&owner(o.id)<0).length;
+  S.orders.forEach(o=>{if(o.td&&owner(o.id)<0&&o!==tdFirst)return;items.push({c:o.t,r:11,text:o.td?(o===tdFirst&&tdN>1?`${o.t.n} ×${tdN}`:o.t.n):`${o.t.n} ≤${o.dl}u`,kind:'order',o})});
   CITIES.filter(t=>t!==D&&!open.has(t.i)).forEach(t=>items.push({c:t,r:4,text:t.n,kind:'town'}));
   const pl=labelLayout(items.map(it=>({x:it.c.x,y:it.c.y,r:it.r,text:it.text})));
   items.forEach((it,k)=>{if(it.kind!=='town')return;g+=`<circle cx="${it.c.x.toFixed(1)}" cy="${it.c.y.toFixed(1)}" r="4" fill="${MUTE}"/>`+lab(pl[k],it.text,400)});
@@ -438,8 +477,8 @@ function draw(){
     const o=it.o,ow=owner(o.id),x=o.t.x.toFixed(1),y=o.t.y.toFixed(1);
     const pos=ow>=0?S.trucks[ow].route.indexOf(o.id)+1:'';
     const ring=o.vp?`<circle cx="${x}" cy="${y}" r="${ow>=0?19:15}" fill="none" stroke="${G}" stroke-width="3"/>`:'';
-    const m=ring+(ow>=0?marker(CAR[ow].shape,+x,+y,String(pos)):(o.vp?`<circle cx="${x}" cy="${y}" r="10" fill="${G}" stroke="${WIT}" stroke-width="2"/><text x="${x}" y="${(+y+4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="${WIT}" style="font-family:Barlow,Arial,sans-serif">${o.load}</text>`:`<circle cx="${x}" cy="${y}" r="10" fill="${WIT}" stroke="${G}" stroke-width="2.5" stroke-dasharray="4 3"/><text x="${x}" y="${(+y+4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="${G}" style="font-family:Barlow,Arial,sans-serif">${o.load}</text>`));
-    g+=`<g role="button" tabindex="0" style="cursor:pointer" aria-label="${o.vp?'Verplicht':'Vrijwillig'}, ${o.t.n}, lading ${o.load}, uiterlijk ${o.dl} uur" data-order="${o.id}"><title>${o.vp?'Verplicht: ':'Vrijwillig: '}${o.t.n}: lading ${o.load}, ${Math.round(km(D,o.t))} km van het depot, ${eur(o.rew)}</title><circle cx="${x}" cy="${y}" r="16" fill="transparent"/>${m}${lab(pl[k],it.text,600)}</g>`;
+    const m=ring+(ow>=0?marker(CAR[ow].shape,+x,+y,String(pos)):(o.td?`<rect x="${(+x-10).toFixed(1)}" y="${(+y-10).toFixed(1)}" width="20" height="20" fill="${GD}" stroke="${WIT}" stroke-width="2"/><text x="${x}" y="${(+y+4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="${WIT}" style="font-family:Barlow,Arial,sans-serif">${o.load}</text>`:o.vp?`<circle cx="${x}" cy="${y}" r="10" fill="${G}" stroke="${WIT}" stroke-width="2"/><text x="${x}" y="${(+y+4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="${WIT}" style="font-family:Barlow,Arial,sans-serif">${o.load}</text>`:`<circle cx="${x}" cy="${y}" r="10" fill="${WIT}" stroke="${G}" stroke-width="2.5" stroke-dasharray="4 3"/><text x="${x}" y="${(+y+4).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="${G}" style="font-family:Barlow,Arial,sans-serif">${o.load}</text>`));
+    g+=`<g role="button" tabindex="0" style="cursor:pointer" aria-label="${o.vp?'Verplicht':'Vrijwillig'}, ${o.t.n}, lading ${o.load}, uiterlijk ${o.dl} uur" data-order="${o.id}"><title>${o.td?'Aanbesteding: ':o.vp?'Verplicht: ':'Vrijwillig: '}${o.t.n}: lading ${o.load}, ${Math.round(km(D,o.t))} km van het depot, ${eur(o.rew)}</title><circle cx="${x}" cy="${y}" r="16" fill="transparent"/>${m}${lab(pl[k],it.text,600)}</g>`;
   });
   g+=`<rect x="${(D.x-8).toFixed(1)}" y="${(D.y-8).toFixed(1)}" width="16" height="16" fill="${G}" stroke="${WIT}" stroke-width="2"/>`+lab(pl[0],D.n,600)+'</svg>';
   $('spelkaart').innerHTML=g;
@@ -459,10 +498,16 @@ function draw(){
   /* bestellingen */
   const row=o=>{
     const ow=owner(o.id);
-    return `<button class="row ${o.vp?'vp':'vrij'}${ow===S.sel?' mine':''}" type="button" data-order="${o.id}"><span><span class="tag ${o.vp?'vp':'vrij'}">${o.vp?'Verplicht':'Vrijwillig'}</span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>Uiterlijk na ${o.dl} u · ${klant(o.t)}${o.vp?` · ${KL[o.kl]} +${KB[o.kl]*100}%`:''}</small><span class="st"><small>${ow>=0?`Wagen ${ow+1}`:'Open'}</small>${ow>=0?icon(ow):''}</span></button>`;
+    return `<button class="row ${o.td?'td':o.vp?'vp':'vrij'}${ow===S.sel?' mine':''}" type="button" data-order="${o.id}"><span><span class="tag ${o.td?'td':o.vp?'vp':'vrij'}">${o.td?'Aanbesteding':o.vp?'Verplicht':'Vrijwillig'}</span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>${o.td?`Nog ${S.active.rleft} ${S.active.rleft===1?'ronde':'rondes'} voor de hele aanbesteding`:`Uiterlijk na ${o.dl} u · ${klant(o.t)}`}${o.vp?` · ${KL[o.kl]} +${KB[o.kl]*100}%`:''}</small><span class="st"><small>${ow>=0?`Wagen ${ow+1}`:'Open'}</small>${ow>=0?icon(ow):''}</span></button>`;
   };
-  const vpo=S.orders.filter(o=>o.vp),bo=S.orders.filter(o=>!o.vp);
-  $('orders').innerHTML=(vpo.length?`<p class="muted" style="margin:0 0 6px"><b>Verplichte opdrachten</b> van vaste klanten. Niet leveren kost €120 boete en vertrouwen.</p>`+vpo.map(row).join(''):'')+`<p class="muted" style="margin:${vpo.length?'14px':'0'} 0 6px"><b>Vrachtenbeurs</b>. Deze vrachten zijn vrijwillig: laat je ze liggen, dan kost dat niets.</p>`+(bo.length?bo.map(row).join(''):`<p class="muted">Geen vrachten op de beurs.</p>`);
+  const vpo=S.orders.filter(o=>o.vp),tdo=S.orders.filter(o=>o.td),bo=S.orders.filter(o=>!o.vp&&!o.td);
+  $('orders').innerHTML=(vpo.length?`<p class="muted" style="margin:0 0 6px"><b>Verplichte opdrachten</b> van vaste klanten. Niet leveren kost €120 boete en vertrouwen.</p>`+vpo.map(row).join(''):'')+(tdo.length?`<p class="muted" style="margin:${vpo.length?'14px':'0'} 0 6px"><b>Aanbesteding ${S.active.t.n}</b>. Alle vrachten van 10 lading moeten binnen de ronden geleverd zijn.</p>`+tdo.map(row).join(''):'')+`<p class="muted" style="margin:${vpo.length||tdo.length?'14px':'0'} 0 6px"><b>Vrachtenbeurs</b>. Deze vrachten zijn vrijwillig: laat je ze liggen, dan kost dat niets.</p>`+(bo.length?bo.map(row).join(''):`<p class="muted">Geen vrachten op de beurs.</p>`);
+
+  /* aanbestedingen */
+  const A=S.active;
+  $('tenders').innerHTML=(A?`<div class="tn act"><span><b>Lopend: ${A.load} lading naar ${A.t.n}</b></span><span>${A.left} van ${A.parts} nog</span><small>Nog ${A.rleft} ${A.rleft===1?'ronde':'rondes'}. Alles op tijd: bonus ${eur(Math.round(A.val*.35))}. Te laat: boete ${eur(Math.round(A.val*.25))}.</small></div>`:'')
+    +S.tenders.map(td=>`<div class="tn"><span><b>${td.load} lading naar ${td.t.n}</b></span><span>binnen ${td.rondes} rondes</span><small>${td.parts} vrachten van ${PART} lading, ${eur(tenderVal(td))} aan vrachten plus ${eur(Math.round(tenderVal(td)*.35))} bonus. Te laat: ${eur(Math.round(tenderVal(td)*.25))} boete.</small><small>Kans op winst ${Math.round(tenderChance(td)*100)}% met je wagens. Inschrijven kost ${eur(TFEE)}.</small><button class="sec" type="button" data-tender="${td.id}" ${(S.active||S.money<TFEE||S.over)?'disabled':''}>Schrijf in</button></div>`).join('')
+    +(S.tenders.length||A?'':'<p class="muted">Geen aanbestedingen deze ronde.</p>');
 
   /* investeren */
   const full=S.trucks.length>=MAXWAGENS;
@@ -484,12 +529,13 @@ function toon(spel){
   $('startview').hidden=spel;$('spel').hidden=!spel;$('who').hidden=!spel;
 }
 document.addEventListener('click',e=>{
-  const t=e.target.closest('[data-order],[data-truck],[data-buy],[data-sell],#opnieuw');
+  const t=e.target.closest('[data-order],[data-truck],[data-buy],[data-sell],[data-tender],#opnieuw');
   if(!t||!S)return;
   if(t.dataset.order)pick(+t.dataset.order);
   else if(t.dataset.truck!=null)selTruck(+t.dataset.truck);
   else if(t.dataset.buy)buy(t.dataset.buy);
   else if(t.dataset.sell)sell();
+  else if(t.dataset.tender)inschrijf(+t.dataset.tender);
   else if(t.id==='opnieuw')init(S.naam,S.niveau);
 });
 document.addEventListener('keydown',e=>{
