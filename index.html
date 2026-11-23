@@ -243,7 +243,7 @@ ROADDEF.push(...JSON.parse("[[\"Amsterdam\", \"Almere\", \"A6\", \"294,338 336,3
 const W=700,H=793,KM=.42;
 const G='#1C542D',GD='#123A1F',TINT='#E3ECE5',WIT='#FFFFFF',MUTE='#59635C',LIJN='#C9D5CC';
 const TYPES={bus:{n:'Bus',price:1000,cap:5,fuel:.3,wage:50},bak:{n:'Bakwagen',price:2000,cap:10,fuel:.4,wage:70},trek:{n:'Trekker met trailer',price:3000,cap:20,fuel:.6,wage:100}};
-const SELLPCT=.5,MAXWAGENS=5,SHIFT=13,GOAL=15000;
+const SELLPCT=.5,MAXWAGENS=5,SHIFT=13,GOAL=25000,MPEN=200,TPEN=.4,MAINT=25;
 const $=id=>document.getElementById(id);
 const eur=n=>(n<0?'−':'')+'€'+Math.abs(Math.round(n)).toLocaleString('nl-NL');
 const fmt=h=>h.toFixed(1).replace('.',',')+' u';
@@ -344,19 +344,19 @@ function relAdd(t,d,L){
   else if(lb<la)L.push(`${klant(t)} is teruggezakt naar ${KL[lb].toLowerCase()}.`);
 }
 function init(naam,niveau){
-  S={naam,niveau,day:1,money:LEVELS[niveau][1],speed:70,trucks:[{route:[],type:'bak'}],sel:0,orders:[],log:[],note:null,over:false,won:false,nid:1,rel:{},active:null,tenders:[]};
+  S={naam,niveau,day:1,money:LEVELS[niveau][1],speed:70,trucks:[{route:[],type:'bak'}],sel:0,orders:[],log:[],note:null,over:false,won:false,nid:1,rel:{},active:null,tenders:[],fm:1};
   newOrders();draw();
 }
 function mk(t,vp){
   const load=2+Math.floor(Math.random()*5),d=km(D,t),k=vp?lvl(relOf(t)):0,f=vp?1:.9+Math.random()*.35;
-  return{id:S.nid++,t,load,dl:Math.ceil(d/70+3+Math.random()*9),rew:Math.round((90+load*14+d*4)*(1+KB[k])*f),kl:k,vp};
+  return{id:S.nid++,t,load,dl:Math.ceil(d/70+2+Math.random()*6),rew:Math.round((90+load*14+d*4)*(1+KB[k])*f),kl:k,vp};
 }
 const TFEE=150,PART=10;
 const partRew=t=>Math.round(90+PART*14+km(D,t)*4);
 function tenderVal(td){return td.parts*partRew(td.t)}
 function tenderChance(td){
   const cap=S.trucks.reduce((a,t)=>a+TYPES[t.type].cap,0)*td.rondes;
-  return Math.max(.2,Math.min(.9,.3+.5*Math.min(1,cap/td.load)+.1*lvl(relOf(td.t))));
+  return Math.max(.2,Math.min(.8,.15+.5*Math.min(1,cap/td.load)+.1*lvl(relOf(td.t))));
 }
 function genTenders(inr){
   const c=inr.slice().sort(()=>Math.random()-.5).slice(0,2);
@@ -375,6 +375,7 @@ function inschrijf(id){
   draw();
 }
 function newOrders(){
+  S.fm=S.day<=1?1:.85+Math.random()*.55;
   const maxD=Math.min(120+30*(S.day-1),S.speed*SHIFT/2*.95);
   const inr=CITIES.filter(t=>t!==D&&km(D,t)<=maxD);
   const vast=inr.filter(t=>lvl(relOf(t))>0&&Math.random()<(lvl(relOf(t))===2?1:.85)).sort((a,b)=>relOf(b)-relOf(a)).slice(0,Math.min(6,S.trucks.length*2));
@@ -389,7 +390,7 @@ function stats(t){
   let p=D,time=0,dist=0,load=0;const st=[];
   for(const id of t.route){const o=ord(id),d=km(p,o.t);dist+=d;time+=d/S.speed;load+=o.load;st.push({o,arr:time,late:time>o.dl});p=o.t}
   if(st.length){const b=km(p,D);dist+=b;time+=b/S.speed}
-  const ty=TYPES[t.type];return{dist,time,load,st,fuel:ty.fuel,wage:ty.wage};
+  const ty=TYPES[t.type];return{dist,time,load,st,fuel:ty.fuel*S.fm,wage:ty.wage};
 }
 const revenue=s=>s.st.reduce((a,x)=>a+(x.late?.5:1)*x.o.rew,0);
 const net=s=>s.st.length?revenue(s)-s.dist*s.fuel-s.wage:0;
@@ -422,12 +423,13 @@ function runDay(){
     L.push(`Wagen ${i+1}: ${Math.round(s.dist)} km, ${s.st.length} ${s.st.length===1?'levering':'leveringen'}${late?`, ${late} te laat (halve prijs)`:''}, ${n>=0?'+':''}${eur(n)}`);
   });
   const un=S.orders.filter(o=>o.vp&&owner(o.id)<0);
-  if(un.length){tot-=un.length*120;L.push(`${un.length} verplichte ${un.length===1?'opdracht':'opdrachten'} niet geleverd: −${eur(un.length*120).replace('−','')} boete`)}
+  if(un.length){tot-=un.length*MPEN;L.push(`${un.length} verplichte ${un.length===1?'opdracht':'opdrachten'} niet geleverd: −${eur(un.length*MPEN).replace('−','')} boete`)}
+  const mt=S.trucks.length*MAINT;tot-=mt;L.push(`Onderhoud en verzekering: −${eur(mt).replace('−','')} (${eur(MAINT)} per wagen)`);
   un.forEach(o=>relAdd(o.t,-2,K));
   if(S.active){
     const A=S.active;A.left=Math.max(0,A.left-dl);A.rleft--;
     if(A.left===0){const b=Math.round(A.val*.35);tot+=b;K.push(`Aanbesteding ${A.t.n} gehaald: bonus +${eur(b)}.`);S.active=null}
-    else if(A.rleft<=0){const f=Math.round(A.val*.25);tot-=f;K.push(`Aanbesteding ${A.t.n} niet op tijd af (${A.left} van ${A.parts} vrachten ontbreken): boete −${eur(f).replace('−','')}.`);S.active=null}
+    else if(A.rleft<=0){const f=Math.round(A.val*TPEN);tot-=f;K.push(`Aanbesteding ${A.t.n} niet op tijd af (${A.left} van ${A.parts} vrachten ontbreken): boete −${eur(f).replace('−','')}.`);S.active=null}
     else K.push(`Aanbesteding ${A.t.n}: nog ${A.left} van ${A.parts} vrachten, nog ${A.rleft} ${A.rleft===1?'ronde':'rondes'}.`);
   }
   L.push(...K);
@@ -454,7 +456,7 @@ function buy(k){
 
 function draw(){
   if(!S)return;
-  $('stats').innerHTML=`<div><b>Ronde ${S.day}</b><span>nu</span></div><div><b>${eur(S.money)}</b><span>kas, doel ${eur(GOAL)}</span></div><div><b>${S.trucks.length} van ${MAXWAGENS}</b><span>wagens</span></div><div><b>${S.speed} km/u</b><span>snelheid</span></div>`;
+  $('stats').innerHTML=`<div><b>Ronde ${S.day}</b><span>nu</span></div><div><b>${eur(S.money)}</b><span>kas, doel ${eur(GOAL)}</span></div><div><b>${S.trucks.length} van ${MAXWAGENS}</b><span>wagens</span></div><div><b>${S.speed} km/u</b><span>snelheid</span></div><div><b>${S.fm>=1?'+':'−'}${Math.round(Math.abs(S.fm-1)*100)}%</b><span>brandstofprijs</span></div>`;
 
   /* kaart */
   let g=`<svg viewBox="36 0 628 ${H}" role="group" aria-label="Kaart van Nederland met bestellingen">`+baseMap();
@@ -492,7 +494,7 @@ function draw(){
   $('info').innerHTML=s.st.length
     ?`<p>Lading <b>${s.load}/${TYPES[S.trucks[S.sel].type].cap}</b> · ${Math.round(s.dist)} km · ${fmt(s.time)} van ${SHIFT} u</p><p>Verwachte winst: <b>${n>=0?'+':''}${eur(n)}</b></p>`
     :`<p class="sub">Deze wagen heeft nog geen route. Klik een bestelling aan op de kaart of in de lijst.</p>`;
-  const vw=S.orders.filter(o=>o.vp&&owner(o.id)<0).map(o=>`<div class="note warn"><span class="badge">Verplicht</span><div>De opdracht naar ${o.t.n} (${klant(o.t)}) is nog niet ingepland. Niet leveren kost €120 boete.</div></div>`).join('');
+  const vw=S.orders.filter(o=>o.vp&&owner(o.id)<0).map(o=>`<div class="note warn"><span class="badge">Verplicht</span><div>De opdracht naar ${o.t.n} (${klant(o.t)}) is nog niet ingepland. Niet leveren kost ${eur(MPEN)} boete.</div></div>`).join('');
   $('notes').innerHTML=vw+s.st.filter(x=>x.late).map(x=>`<div class="note warn"><span class="badge">Let op</span><div>Wagen ${S.sel+1} komt in ${x.o.t.n} ${fmt(x.arr-x.o.dl)} te laat aan. Je krijgt de helft van het bedrag.</div></div>`).join('');
 
   /* bestellingen */
@@ -501,12 +503,12 @@ function draw(){
     return `<button class="row ${o.td?'td':o.vp?'vp':'vrij'}${ow===S.sel?' mine':''}" type="button" data-order="${o.id}"><span><span class="tag ${o.td?'td':o.vp?'vp':'vrij'}">${o.td?'Aanbesteding':o.vp?'Verplicht':'Vrijwillig'}</span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>${o.td?`Nog ${S.active.rleft} ${S.active.rleft===1?'ronde':'rondes'} voor de hele aanbesteding`:`Uiterlijk na ${o.dl} u · ${klant(o.t)}`}${o.vp?` · ${KL[o.kl]} +${KB[o.kl]*100}%`:''}</small><span class="st"><small>${ow>=0?`Wagen ${ow+1}`:'Open'}</small>${ow>=0?icon(ow):''}</span></button>`;
   };
   const vpo=S.orders.filter(o=>o.vp),tdo=S.orders.filter(o=>o.td),bo=S.orders.filter(o=>!o.vp&&!o.td);
-  $('orders').innerHTML=(vpo.length?`<p class="muted" style="margin:0 0 6px"><b>Verplichte opdrachten</b> van vaste klanten. Niet leveren kost €120 boete en vertrouwen.</p>`+vpo.map(row).join(''):'')+(tdo.length?`<p class="muted" style="margin:${vpo.length?'14px':'0'} 0 6px"><b>Aanbesteding ${S.active.t.n}</b>. Alle vrachten van 10 lading moeten binnen de ronden geleverd zijn.</p>`+tdo.map(row).join(''):'')+`<p class="muted" style="margin:${vpo.length||tdo.length?'14px':'0'} 0 6px"><b>Vrachtenbeurs</b>. Deze vrachten zijn vrijwillig: laat je ze liggen, dan kost dat niets.</p>`+(bo.length?bo.map(row).join(''):`<p class="muted">Geen vrachten op de beurs.</p>`);
+  $('orders').innerHTML=(vpo.length?`<p class="muted" style="margin:0 0 6px"><b>Verplichte opdrachten</b> van vaste klanten. Niet leveren kost ${eur(MPEN)} boete en vertrouwen.</p>`+vpo.map(row).join(''):'')+(tdo.length?`<p class="muted" style="margin:${vpo.length?'14px':'0'} 0 6px"><b>Aanbesteding ${S.active.t.n}</b>. Alle vrachten van 10 lading moeten binnen de ronden geleverd zijn.</p>`+tdo.map(row).join(''):'')+`<p class="muted" style="margin:${vpo.length||tdo.length?'14px':'0'} 0 6px"><b>Vrachtenbeurs</b>. Deze vrachten zijn vrijwillig: laat je ze liggen, dan kost dat niets.</p>`+(bo.length?bo.map(row).join(''):`<p class="muted">Geen vrachten op de beurs.</p>`);
 
   /* aanbestedingen */
   const A=S.active;
-  $('tenders').innerHTML=(A?`<div class="tn act"><span><b>Lopend: ${A.load} lading naar ${A.t.n}</b></span><span>${A.left} van ${A.parts} nog</span><small>Nog ${A.rleft} ${A.rleft===1?'ronde':'rondes'}. Alles op tijd: bonus ${eur(Math.round(A.val*.35))}. Te laat: boete ${eur(Math.round(A.val*.25))}.</small></div>`:'')
-    +S.tenders.map(td=>`<div class="tn"><span><b>${td.load} lading naar ${td.t.n}</b></span><span>binnen ${td.rondes} rondes</span><small>${td.parts} vrachten van ${PART} lading, ${eur(tenderVal(td))} aan vrachten plus ${eur(Math.round(tenderVal(td)*.35))} bonus. Te laat: ${eur(Math.round(tenderVal(td)*.25))} boete.</small><small>Kans op winst ${Math.round(tenderChance(td)*100)}% met je wagens. Inschrijven kost ${eur(TFEE)}.</small><button class="sec" type="button" data-tender="${td.id}" ${(S.active||S.money<TFEE||S.over)?'disabled':''}>Schrijf in</button></div>`).join('')
+  $('tenders').innerHTML=(A?`<div class="tn act"><span><b>Lopend: ${A.load} lading naar ${A.t.n}</b></span><span>${A.left} van ${A.parts} nog</span><small>Nog ${A.rleft} ${A.rleft===1?'ronde':'rondes'}. Alles op tijd: bonus ${eur(Math.round(A.val*.35))}. Te laat: boete ${eur(Math.round(A.val*TPEN))}.</small></div>`:'')
+    +S.tenders.map(td=>`<div class="tn"><span><b>${td.load} lading naar ${td.t.n}</b></span><span>binnen ${td.rondes} rondes</span><small>${td.parts} vrachten van ${PART} lading, ${eur(tenderVal(td))} aan vrachten plus ${eur(Math.round(tenderVal(td)*.35))} bonus. Te laat: ${eur(Math.round(tenderVal(td)*TPEN))} boete.</small><small>Kans op winst ${Math.round(tenderChance(td)*100)}% met je wagens. Inschrijven kost ${eur(TFEE)}.</small><button class="sec" type="button" data-tender="${td.id}" ${(S.active||S.money<TFEE||S.over)?'disabled':''}>Schrijf in</button></div>`).join('')
     +(S.tenders.length||A?'':'<p class="muted">Geen aanbestedingen deze ronde.</p>');
 
   /* investeren */
