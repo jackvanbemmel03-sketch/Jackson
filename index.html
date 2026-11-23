@@ -318,14 +318,26 @@ hero();
 /* ---------- spel ---------- */
 const LEVELS={rustig:['Rustig',2500],normaal:['Normaal',1500],zwaar:['Zwaar',750]};
 let S=null;
+/* vaste klanten: elke stad heeft een vaste klant; op tijd leveren bouwt vertrouwen op */
+const PRE=['Groothandel','Bakkerij','Bouwmarkt','Supermarkt','Tuincentrum','Drukkerij','Slagerij','Meubelzaak'];
+const KL=['Nieuwe klant','Vaste klant','Topklant'],KB=[0,.1,.2],KP=[0,3,6];
+const klant=t=>PRE[t.i%PRE.length]+' '+t.n;
+const lvl=p=>p>=KP[2]?2:p>=KP[1]?1:0;
+const relOf=t=>(S.rel&&S.rel[t.i])||0;
+function relAdd(t,d,L){
+  const a=relOf(t),b=Math.max(0,a+d);S.rel[t.i]=b;
+  const la=lvl(a),lb=lvl(b);
+  if(lb>la)L.push(`${klant(t)} is nu ${lb===1?'een':'een'} ${KL[lb].toLowerCase()}: +${KB[lb]*100}% beloning en vaker bestellingen.`);
+  else if(lb<la)L.push(`${klant(t)} is teruggezakt naar ${KL[lb].toLowerCase()}.`);
+}
 function init(naam,niveau){
-  S={naam,niveau,day:1,money:LEVELS[niveau][1],speed:70,trucks:[{route:[],type:'bak'}],sel:0,orders:[],log:[],note:null,over:false,won:false,nid:1};
+  S={naam,niveau,day:1,money:LEVELS[niveau][1],speed:70,trucks:[{route:[],type:'bak'}],sel:0,orders:[],log:[],note:null,over:false,won:false,nid:1,rel:{}};
   newOrders();draw();
 }
 function newOrders(){
   const maxD=Math.min(120+30*(S.day-1),S.speed*SHIFT/2*.95);
-  const pool=CITIES.filter(t=>t!==D&&km(D,t)<=maxD).sort(()=>Math.random()-.5).slice(0,Math.min(3+S.day,9));
-  S.orders=pool.map(t=>{const load=2+Math.floor(Math.random()*5),d=km(D,t);return{id:S.nid++,t,load,dl:Math.ceil(d/70+3+Math.random()*9),rew:Math.round(90+load*14+d*4)}});
+  const pool=CITIES.filter(t=>t!==D&&km(D,t)<=maxD).map(t=>[t,Math.random()-lvl(relOf(t))*.3]).sort((a,b)=>a[1]-b[1]).map(x=>x[0]).slice(0,Math.min(3+S.day,9));
+  S.orders=pool.map(t=>{const load=2+Math.floor(Math.random()*5),d=km(D,t);return{id:S.nid++,t,load,dl:Math.ceil(d/70+3+Math.random()*9),rew:Math.round((90+load*14+d*4)*(1+KB[lvl(relOf(t))])),kl:lvl(relOf(t))}});
 }
 const owner=id=>S.trucks.findIndex(t=>t.route.includes(id));
 const ord=id=>S.orders.find(o=>o.id===id);
@@ -358,14 +370,17 @@ function clearRoutes(){S.trucks.forEach(t=>t.route=[]);S.note=null;draw()}
 function selTruck(i){S.sel=i;S.note=null;draw()}
 function runDay(){
   if(S.over)return;
-  let tot=0;const L=[];
+  let tot=0;const L=[],K=[];
   S.trucks.forEach((t,i)=>{
     const s=stats(t);if(!s.st.length)return;
     const late=s.st.filter(x=>x.late).length,n=net(s);tot+=n;
+    s.st.forEach(x=>relAdd(x.o.t,x.late?-1:1,K));
     L.push(`Wagen ${i+1}: ${Math.round(s.dist)} km, ${s.st.length} ${s.st.length===1?'levering':'leveringen'}${late?`, ${late} te laat (halve prijs)`:''}, ${n>=0?'+':''}${eur(n)}`);
   });
   const un=S.orders.filter(o=>owner(o.id)<0);
   if(un.length){tot-=un.length*120;L.push(`${un.length} ${un.length===1?'bestelling':'bestellingen'} niet geleverd: −${eur(un.length*120).replace('−','')} boete`)}
+  un.forEach(o=>relAdd(o.t,-1,K));
+  L.push(...K);
   S.money+=tot;
   L.unshift(`Ronde ${S.day}: ${tot>=0?'+':''}${eur(tot)}`);
   S.log=L;S.day++;S.trucks.forEach(t=>t.route=[]);S.note=null;
@@ -430,7 +445,7 @@ function draw(){
   /* bestellingen */
   $('orders').innerHTML=S.orders.map(o=>{
     const ow=owner(o.id);
-    return `<button class="row${ow===S.sel?' mine':''}" type="button" data-order="${o.id}"><span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>Uiterlijk na ${o.dl} u</small><span class="st"><small>${ow>=0?`Wagen ${ow+1}`:'Open'}</small>${ow>=0?icon(ow):''}</span></button>`;
+    return `<button class="row${ow===S.sel?' mine':''}" type="button" data-order="${o.id}"><span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>Uiterlijk na ${o.dl} u · ${klant(o.t)}${o.kl?` · ${KL[o.kl]} +${KB[o.kl]*100}%`:''}</small><span class="st"><small>${ow>=0?`Wagen ${ow+1}`:'Open'}</small>${ow>=0?icon(ow):''}</span></button>`;
   }).join('');
 
   /* investeren */
@@ -443,6 +458,8 @@ function draw(){
   $('log').innerHTML=S.over
     ?`<div class="note stopn" style="margin-top:0"><span class="badge">Failliet</span><div>Je kas is negatief. Begin opnieuw met dezelfde bedrijfsnaam.</div></div><div class="btns"><button class="go" type="button" id="opnieuw">Opnieuw beginnen</button></div>`
     :(S.log.length?S.log.map((l,i)=>`<p${i===0?' style="font-weight:600"':''}>${l}</p>`).join(''):`<p class="muted">Combineer bestellingen die langs dezelfde route liggen. Elke rit kost loon en brandstof. Met elke ronde komen er verder weg gelegen steden bij.</p>`);
+  const vk=CITIES.filter(t=>lvl(relOf(t))>0).sort((a,b)=>relOf(b)-relOf(a));
+  if(!S.over&&vk.length)$('log').innerHTML+=`<p class="muted" style="margin-top:8px"><b>Vaste klanten:</b> ${vk.map(t=>`${klant(t)} (${KL[lvl(relOf(t))].toLowerCase()}, ${relOf(t)} punten)`).join(', ')}</p>`;
   $('run').disabled=S.over;
 }
 
