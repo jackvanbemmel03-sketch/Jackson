@@ -347,9 +347,12 @@ function init(naam,niveau){
   S={naam,niveau,day:1,money:LEVELS[niveau][1],speed:70,trucks:[{route:[],type:'bak'}],sel:0,orders:[],log:[],note:null,over:false,won:false,nid:1,rel:{},active:null,tenders:[],fm:1};
   newOrders();draw();
 }
+const CARGO={koel:{n:'Koelwaar',m:1.4},gev:{n:'Gevaarlijke stoffen',m:1.6}},UPG={koel:{n:'Koeling',price:800},adr:{n:'ADR-certificaat',price:1000}};
 function mk(t,vp){
-  const load=2+Math.floor(Math.random()*5),d=km(D,t),k=vp?lvl(relOf(t)):0,f=vp?1:.9+Math.random()*TBON;
-  return{id:S.nid++,t,load,dl:Math.ceil(d/70+2+Math.random()*6),rew:Math.round((90+load*14+d*4)*(1+KB[k])*f),kl:k,vp};
+  const load=2+Math.floor(Math.random()*5),d=km(D,t),k=vp?lvl(relOf(t)):0,f=vp?1:.9+Math.random()*.35;
+  const r=Math.random(),cargo=vp?null:r<.2?'koel':r<.35?'gev':null;
+  const dl=cargo==='koel'?Math.ceil(d/70+1+Math.random()*3):Math.ceil(d/70+2+Math.random()*6);
+  return{id:S.nid++,t,load,dl,rew:Math.round((90+load*14+d*4)*(1+KB[k])*f*(cargo?CARGO[cargo].m:1)),kl:k,vp,cargo};
 }
 const TFEE=300,PART=10,TBON=.25;
 const partRew=(t,pl,only)=>Math.round((90+pl*14+km(D,t)*4)*(only?1.1:.9));
@@ -395,7 +398,7 @@ function stats(t){
   if(st.length){const b=km(p,D);dist+=b;time+=b/S.speed}
   const ty=TYPES[t.type];return{dist,time,load,st,fuel:ty.fuel*S.fm,wage:ty.wage};
 }
-const revenue=s=>s.st.reduce((a,x)=>a+(x.late?.5:1)*x.o.rew,0);
+const revenue=s=>s.st.reduce((a,x)=>a+(x.late?(x.o.cargo==='koel'?0:.5):1)*x.o.rew,0);
 const net=s=>s.st.length?revenue(s)-s.dist*s.fuel-s.wage:0;
 function pick(id){
   if(S.over)return;
@@ -406,6 +409,9 @@ function pick(id){
   const old=ow>=0?S.trucks[ow]:null;
   if(old)old.route=old.route.filter(x=>x!==id);
   const oo=ord(id);
+  if(oo&&oo.cargo==='koel'&&!cur.koel){S.note={label:'Past niet',text:'Koelwaar heeft een wagen met koeling nodig. Koop koeling voor deze wagen onder Investeren.'};return draw()}
+  if(oo&&oo.cargo==='gev'&&!cur.adr){S.note={label:'Past niet',text:'Gevaarlijke stoffen mogen alleen met een ADR-certificaat. Koop dat voor deze wagen onder Investeren.'};return draw()}
+  if(oo&&oo.cargo&&cur.route.some(i=>{const q=ord(i);return q&&q.cargo&&q.cargo!==oo.cargo})){S.note={label:'Past niet',text:'Gevaarlijke stoffen en koelwaar mogen niet in dezelfde wagen.'};return draw()}
   if(oo&&oo.only&&cur.type!==oo.only){S.note={label:'Past niet',text:`Deze aanbesteding is alleen voor een ${TYPES[oo.only].n.toLowerCase()}. Kies een bus als wagen.`};return draw()}
   cur.route.push(id);
   const s=stats(cur);
@@ -445,12 +451,17 @@ function runDay(){
   else{newOrders();if(S.money>=GOAL&&!S.won){S.won=true;S.log.push(`Je bedrijf haalt ${eur(GOAL)}. Gewonnen. Je mag doorspelen.`)}}
   draw();
 }
-const resale=t=>Math.round(TYPES[t.type].price*SELLPCT);
+const resale=t=>Math.round((TYPES[t.type].price+(t.koel?UPG.koel.price:0)+(t.adr?UPG.adr.price:0))*SELLPCT);
 function canSell(){const t=S.trucks[S.sel];return !S.over&&!!t&&(S.trucks.length>1||S.money+resale(t)>=TYPES.bus.price)}
 function sell(){
   if(!canSell())return;
   const t=S.trucks[S.sel];S.money+=resale(t);S.trucks.splice(S.sel,1);S.sel=Math.max(0,Math.min(S.sel,S.trucks.length-1));
   S.note=null;draw();
+}
+function upgrade(k){
+  const t=S.trucks[S.sel],u=UPG[k];
+  if(S.over||!t||!u||t[k]||S.money<u.price)return;
+  S.money-=u.price;t[k]=true;S.note=null;draw();
 }
 function buy(k){
   if(S.over)return;
@@ -475,7 +486,7 @@ function draw(){
   const open=new Set(S.orders.map(o=>o.t.i));
   const items=[{c:D,r:9,text:D.n,kind:'depot'}];
   const tdFirst=S.orders.find(o=>o.td&&owner(o.id)<0),tdN=S.orders.filter(o=>o.td&&owner(o.id)<0).length;
-  S.orders.forEach(o=>{if(o.td&&owner(o.id)<0&&o!==tdFirst)return;items.push({c:o.t,r:11,text:o.td?(o===tdFirst&&tdN>1?`${o.t.n} ×${tdN}`:o.t.n):`${o.t.n} ≤${o.dl}u`,kind:'order',o})});
+  S.orders.forEach(o=>{if(o.td&&owner(o.id)<0&&o!==tdFirst)return;items.push({c:o.t,r:11,text:o.td?(o===tdFirst&&tdN>1?`${o.t.n} ×${tdN}`:o.t.n):`${o.t.n} ≤${o.dl}u${o.cargo?(o.cargo==='koel'?' koel':' ADR'):''}`,kind:'order',o})});
   CITIES.filter(t=>t!==D&&!open.has(t.i)).forEach(t=>items.push({c:t,r:4,text:t.n,kind:'town'}));
   const pl=labelLayout(items.map(it=>({x:it.c.x,y:it.c.y,r:it.r,text:it.text})));
   items.forEach((it,k)=>{if(it.kind!=='town')return;g+=`<circle cx="${it.c.x.toFixed(1)}" cy="${it.c.y.toFixed(1)}" r="4" fill="${MUTE}"/>`+lab(pl[k],it.text,400)});
@@ -494,7 +505,7 @@ function draw(){
   $('melding').innerHTML=S.note?`<div class="note stopn"><span class="badge">${S.note.label}</span><div>${S.note.text}</div></div>`:'';
 
   /* wagenkeuze en routegegevens */
-  $('tabs').innerHTML=S.trucks.map((t,i)=>`<button class="sec" type="button" aria-pressed="${i===S.sel}" data-truck="${i}">${icon(i)}Wagen ${i+1} · ${TYPES[t.type].n}</button>`).join('');
+  $('tabs').innerHTML=S.trucks.map((t,i)=>`<button class="sec" type="button" aria-pressed="${i===S.sel}" data-truck="${i}">${icon(i)}Wagen ${i+1} · ${TYPES[t.type].n}${t.koel?' · koel':''}${t.adr?' · ADR':''}</button>`).join('');
   const s=S.trucks.length?stats(S.trucks[S.sel]):{st:[],load:0,dist:0,time:0},n=net(s);
   $('info').innerHTML=s.st.length
     ?`<p>Lading <b>${s.load}/${TYPES[S.trucks[S.sel].type].cap}</b> · ${Math.round(s.dist)} km · ${fmt(s.time)} van ${SHIFT} u</p><p>Verwachte winst: <b>${n>=0?'+':''}${eur(n)}</b></p>`
@@ -505,10 +516,10 @@ function draw(){
   /* bestellingen */
   const row=o=>{
     const ow=owner(o.id);
-    return `<button class="row ${o.td?'td':o.vp?'vp':'vrij'}${ow===S.sel?' mine':''}" type="button" data-order="${o.id}"><span><span class="tag ${o.td?'td':o.vp?'vp':'vrij'}">${o.td?(o.only?'Aanbesteding, alleen bus':'Aanbesteding'):o.vp?'Verplicht':'Vrijwillig'}</span><b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>${o.td?`Nog ${S.active.rleft} ${S.active.rleft===1?'ronde':'rondes'} voor de hele aanbesteding`:`Uiterlijk na ${o.dl} u · ${klant(o.t)}`}${o.vp?` · ${KL[o.kl]} +${KB[o.kl]*100}%`:''}</small><span class="st"><small>${ow>=0?`Wagen ${ow+1}`:'Open'}</small>${ow>=0?icon(ow):''}</span></button>`;
+    return `<button class="row ${o.td?'td':o.vp?'vp':'vrij'}${ow===S.sel?' mine':''}" type="button" data-order="${o.id}"><span><span class="tag ${o.td?'td':o.vp?'vp':'vrij'}">${o.td?(o.only?'Aanbesteding, alleen bus':'Aanbesteding'):o.vp?'Verplicht':'Vrijwillig'}</span>${o.cargo?`<span class="tag vrij">${o.cargo==='koel'?'Koel':'ADR'}</span>`:''}<b>${o.t.n}</b> · ${o.load} lading · ${Math.round(km(D,o.t))} km</span><span>${eur(o.rew)}</span><small>${o.cargo?`${CARGO[o.cargo].n}${o.cargo==='koel'?' (te laat is niets waard)':''} · `:''}${o.td?`Nog ${S.active.rleft} ${S.active.rleft===1?'ronde':'rondes'} voor de hele aanbesteding`:`Uiterlijk na ${o.dl} u · ${klant(o.t)}`}${o.vp?` · ${KL[o.kl]} +${KB[o.kl]*100}%`:''}</small><span class="st"><small>${ow>=0?`Wagen ${ow+1}`:'Open'}</small>${ow>=0?icon(ow):''}</span></button>`;
   };
   const vpo=S.orders.filter(o=>o.vp),tdo=S.orders.filter(o=>o.td),bo=S.orders.filter(o=>!o.vp&&!o.td);
-  $('orders').innerHTML=(vpo.length?`<p class="muted" style="margin:0 0 6px"><b>Verplichte opdrachten</b> van vaste klanten. Niet leveren kost ${eur(MPEN)} boete en vertrouwen.</p>`+vpo.map(row).join(''):'')+(tdo.length?`<p class="muted" style="margin:${vpo.length?'14px':'0'} 0 6px"><b>Aanbesteding ${S.active.t.n}</b>. Alle vrachten moeten binnen de ronden geleverd zijn.${S.active.only?' Alleen een bus mag deze vrachten rijden.':''}</p>`+tdo.map(row).join(''):'')+`<p class="muted" style="margin:${vpo.length||tdo.length?'14px':'0'} 0 6px"><b>Vrachtenbeurs</b>. Deze vrachten zijn vrijwillig: laat je ze liggen, dan kost dat niets.</p>`+(bo.length?bo.map(row).join(''):`<p class="muted">Geen vrachten op de beurs.</p>`);
+  $('orders').innerHTML=(vpo.length?`<p class="muted" style="margin:0 0 6px"><b>Verplichte opdrachten</b> van vaste klanten. Niet leveren kost ${eur(MPEN)} boete en vertrouwen.</p>`+vpo.map(row).join(''):'')+(tdo.length?`<p class="muted" style="margin:${vpo.length?'14px':'0'} 0 6px"><b>Aanbesteding ${S.active.t.n}</b>. Alle vrachten moeten binnen de ronden geleverd zijn.${S.active.only?' Alleen een bus mag deze vrachten rijden.':''}</p>`+tdo.map(row).join(''):'')+`<p class="muted" style="margin:${vpo.length||tdo.length?'14px':'0'} 0 6px"><b>Vrachtenbeurs</b>. Deze vrachten zijn vrijwillig: laat je ze liggen, dan kost dat niets. Koelwaar en gevaarlijke stoffen betalen meer, maar vragen om een wagen met koeling of ADR-certificaat.</p>`+(bo.length?bo.map(row).join(''):`<p class="muted">Geen vrachten op de beurs.</p>`);
 
   /* aanbestedingen */
   const A=S.active;
@@ -520,7 +531,7 @@ function draw(){
   const full=S.trucks.length>=MAXWAGENS;
   const sh=[...Object.entries(TYPES).map(([k,ty])=>[k,`${ty.n}, ${ty.cap} lading, €${ty.fuel.toFixed(2).replace(".",",")}/km, loon €${ty.wage}`,ty.price,full]),['spd',`Snellere wagens (+10, nu ${S.speed})`,2500,S.speed>=110]];
   const st0=S.trucks[S.sel];
-  $('shop').innerHTML=sh.map(x=>`<button class="sec" type="button" data-buy="${x[0]}" ${(S.money<x[2]||x[3]||S.over)?'disabled':''}><span>${x[1]}</span><span>${eur(x[2])}</span></button>`).join('')+(st0?`<button class="sec" type="button" data-sell="1" ${canSell()?'':'disabled'}><span>Verkoop wagen ${S.sel+1} (${TYPES[st0.type].n}), de helft van de prijs</span><span>+${eur(resale(st0))}</span></button>`:'');
+  $('shop').innerHTML=sh.map(x=>`<button class="sec" type="button" data-buy="${x[0]}" ${(S.money<x[2]||x[3]||S.over)?'disabled':''}><span>${x[1]}</span><span>${eur(x[2])}</span></button>`).join('')+(st0?Object.entries(UPG).map(([k,u])=>`<button class="sec" type="button" data-upg="${k}" ${(st0[k]||S.money<u.price||S.over)?'disabled':''}><span>${u.n} voor wagen ${S.sel+1}${st0[k]?' (heeft hij al)':k==='koel'?' (koelwaar, +40% prijs)':' (gevaarlijke stoffen, +60% prijs)'}</span><span>${eur(u.price)}</span></button>`).join('')+`<button class="sec" type="button" data-sell="1" ${canSell()?'':'disabled'}><span>Verkoop wagen ${S.sel+1} (${TYPES[st0.type].n}), de helft van de prijs</span><span>+${eur(resale(st0))}</span></button>`:'');
 
   /* uitkomst van de vorige ronde */
   $('log').innerHTML=S.over
@@ -536,12 +547,13 @@ function toon(spel){
   $('startview').hidden=spel;$('spel').hidden=!spel;$('who').hidden=!spel;
 }
 document.addEventListener('click',e=>{
-  const t=e.target.closest('[data-order],[data-truck],[data-buy],[data-sell],[data-tender],#opnieuw');
+  const t=e.target.closest('[data-order],[data-truck],[data-buy],[data-sell],[data-tender],[data-upg],#opnieuw');
   if(!t||!S)return;
   if(t.dataset.order)pick(+t.dataset.order);
   else if(t.dataset.truck!=null)selTruck(+t.dataset.truck);
   else if(t.dataset.buy)buy(t.dataset.buy);
   else if(t.dataset.sell)sell();
+  else if(t.dataset.upg)upgrade(t.dataset.upg);
   else if(t.dataset.tender)inschrijf(+t.dataset.tender);
   else if(t.id==='opnieuw')init(S.naam,S.niveau);
 });
